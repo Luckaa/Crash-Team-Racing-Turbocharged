@@ -555,13 +555,37 @@ static void NativeAdhoc_InitWinsock(void)
 }
 #endif
 
-static char s_nativeAdhocCustomHostIp[64] = "127.0.0.1";
+static char s_nativeAdhocCustomHostIp[128] = "127.0.0.1";
+static u16 s_nativeAdhocCustomHostPort = NATIVE_ADHOC_PORT;
 
 void NativeAdhoc_SetCustomHostIp(const char *ip)
 {
 	if ((ip != NULL) && (ip[0] != '\0'))
 	{
-		strncpy(s_nativeAdhocCustomHostIp, ip, sizeof(s_nativeAdhocCustomHostIp) - 1);
+		char buf[128];
+		strncpy(buf, ip, sizeof(buf) - 1);
+		buf[sizeof(buf) - 1] = '\0';
+
+		char *colon = strchr(buf, ':');
+		if (colon != NULL)
+		{
+			*colon = '\0';
+			int portVal = atoi(colon + 1);
+			if (portVal > 0 && portVal <= 65535)
+			{
+				s_nativeAdhocCustomHostPort = (u16)portVal;
+			}
+			else
+			{
+				s_nativeAdhocCustomHostPort = NATIVE_ADHOC_PORT;
+			}
+		}
+		else
+		{
+			s_nativeAdhocCustomHostPort = NATIVE_ADHOC_PORT;
+		}
+
+		strncpy(s_nativeAdhocCustomHostIp, buf, sizeof(s_nativeAdhocCustomHostIp) - 1);
 		s_nativeAdhocCustomHostIp[sizeof(s_nativeAdhocCustomHostIp) - 1] = '\0';
 	}
 }
@@ -569,6 +593,11 @@ void NativeAdhoc_SetCustomHostIp(const char *ip)
 const char *NativeAdhoc_GetCustomHostIp(void)
 {
 	return s_nativeAdhocCustomHostIp;
+}
+
+u16 NativeAdhoc_GetCustomHostPort(void)
+{
+	return s_nativeAdhocCustomHostPort;
 }
 
 static void NativeAdhoc_LoadCustomHostIp(void)
@@ -593,7 +622,8 @@ static void NativeAdhoc_LoadCustomHostIp(void)
 			if (len > 0)
 			{
 				NativeAdhoc_SetCustomHostIp(p);
-				Platform_Log("[CTR Multiplayer] Custom host IP carregado: %s\n", s_nativeAdhocCustomHostIp);
+				Platform_Log("[CTR Multiplayer] Custom host IP carregado: %s (Porta %u)\n",
+				             s_nativeAdhocCustomHostIp, (unsigned int)s_nativeAdhocCustomHostPort);
 				break;
 			}
 		}
@@ -607,6 +637,7 @@ static void NativeAdhoc_LoadCustomHostIp(void)
 			fprintf(out, "# Digite abaixo o endereco IP do Host (sala do seu amigo):\n");
 			fprintf(out, "# Exemplo na rede local: 192.168.1.50\n");
 			fprintf(out, "# Exemplo via Hamachi/Radmin VPN: 25.x.x.x ou 26.x.x.x\n");
+			fprintf(out, "# Exemplo com porta customizada / Playit.gg: 147.185.221.16:12345\n");
 			fprintf(out, "# Exemplo no mesmo computador (2 janelas): 127.0.0.1\n");
 			fprintf(out, "127.0.0.1\n");
 			fclose(out);
@@ -1147,8 +1178,26 @@ static void NativeAdhoc_SendHello(void)
 		NativeNetAddr targetAddr;
 		memset(&targetAddr, 0, sizeof(targetAddr));
 		targetAddr.sin_family = AF_INET;
-		targetAddr.sin_port = htons(NATIVE_ADHOC_PORT);
-		targetAddr.sin_addr.s_addr = inet_addr(s_nativeAdhocCustomHostIp);
+		targetAddr.sin_port = htons(s_nativeAdhocCustomHostPort);
+
+		unsigned long addr = inet_addr(s_nativeAdhocCustomHostIp);
+		if ((addr == INADDR_NONE) && (strcmp(s_nativeAdhocCustomHostIp, "255.255.255.255") != 0))
+		{
+			struct hostent *he = gethostbyname(s_nativeAdhocCustomHostIp);
+			if ((he != NULL) && (he->h_addr_list != NULL) && (he->h_addr_list[0] != NULL))
+			{
+				memcpy(&targetAddr.sin_addr, he->h_addr_list[0], sizeof(targetAddr.sin_addr));
+			}
+			else
+			{
+				targetAddr.sin_addr.s_addr = addr;
+			}
+		}
+		else
+		{
+			targetAddr.sin_addr.s_addr = addr;
+		}
+
 		NativeAdhoc_SendRaw(&targetAddr, &packet, sizeof(packet));
 	}
 	else
@@ -1439,7 +1488,7 @@ static int NativeAdhoc_OpenSocket(void)
 	else
 	{
 		Platform_Log("[CTR Multiplayer] Buscando sala... (Porta %u | Target IP: %s)\n",
-		             NATIVE_ADHOC_PORT, s_nativeAdhocCustomHostIp);
+		             (unsigned int)s_nativeAdhocCustomHostPort, s_nativeAdhocCustomHostIp);
 	}
 	return 1;
 #endif

@@ -65,6 +65,7 @@ u32 NativeAdhoc_GetSimulationFrame(void);
 const char *NativeAdhoc_GetStatusText(void);
 void NativeAdhoc_SetCustomHostIp(const char *ip);
 const char *NativeAdhoc_GetCustomHostIp(void);
+u16 NativeAdhoc_GetCustomHostPort(void);
 int NativeAdhoc_IsLobbyStarted(void);
 void NativeAdhoc_StartLobby(void);
 int NativeAdhoc_IsRaceConfigReady(void);

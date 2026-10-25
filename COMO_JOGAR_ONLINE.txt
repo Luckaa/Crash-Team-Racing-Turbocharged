@@ -1,0 +1,51 @@
+========================================================================
+   CRASH TEAM RACING - TURBOCHARGED (PC NATIVE MULTIPLAYER)
+========================================================================
+
+Este pacote e 100% PORTATIL: Nao precisa instalar nada!
+Funciona em qualquer Windows 64-bit / 32-bit.
+
+------------------------------------------------------------------------
+1. COMO JOGAR:
+------------------------------------------------------------------------
+Basta dar 2 cliques em "JOGAR.bat" ou "Crash Team Racing - Turbocharged.exe".
+
+------------------------------------------------------------------------
+2. COMO JOGAR MULTIPLAYER (2 a 4 Jogadores):
+------------------------------------------------------------------------
+O jogo possui modo Multiplayer nativo de 2, 3 e 4 jogadores (sem bots)!
+
+A) O JOGADOR QUE FOR CRIAR A SALA (HOST):
+   1. Abra o jogo ("JOGAR.bat").
+   2. No menu principal, va na opcao MULTIPLAYER e escolha CRIAR SALA.
+   3. Aguarde os outros jogadores entrarem na sala (aparecera 2/4, 3/4, 4/4).
+   4. Aperte o botao de iniciar (Start / X) para abrir a escolha de pista.
+
+B) OS JOGADORES QUE FOREM ENTRAR (CLIENTS):
+   1. De 2 cliques em "CONFIGURAR_IP.bat".
+   2. Digite o IP do jogador Host e aperte Enter:
+      - OPCAO 1 (Mesma Rede / Wi-Fi da casa - Sem nenhum programa):
+        Coloque o IPv4 local do Host (ex: 192.168.1.15).
+      - OPCAO 2 (Pela Internet direto - Sem nenhum programa instalado):
+        O Host abre a porta 31847 UDP no roteador e passa o IP do site meuip.com.br.
+      - OPCAO 3 (Pela Internet via Playit.gg ou Tunel):
+        Coloque o endereco gerado pelo Playit (ex: 147.185.221.16:12345).
+      - OPCAO 4 (Via VPN virtual - Radmin / Tailscale / ZeroTier):
+        Coloque o IP do Host fornecido pelo programa (ex: 26.x.x.x).
+      - OPCAO 5 (No mesmo PC para testar - 2 janelas):
+        Coloque 127.0.0.1.
+   3. Abra o jogo ("JOGAR.bat").
+   4. No menu, va em MULTIPLAYER e escolha BUSCAR SALA.
+   5. Pronto! Voce sera conectado automaticamente a sala do Host.
+
+------------------------------------------------------------------------
+3. CONTROLES PADRAO (TECLADO):
+------------------------------------------------------------------------
+- Acelerar (X): Tecla C
+- Freio / Re (Quadrado): Tecla X
+- Usar Item (Circulo): Tecla V
+- Pular / Drift (L1/R1): Teclas Shift / Barra de Espaco
+- Direcionais: Setas do Teclado
+- Pause: Enter
+- Suporta Controles USB (PlayStation, Xbox, Genericos) nativamente via Plug and Play!
+========================================================================

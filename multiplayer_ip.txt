@@ -5,8 +5,9 @@
 #
 # Se você for entrar na sala (JOIN):
 #   - Para jogar no mesmo PC (2 jogos abertos): mantenha 127.0.0.1
-#   - Para jogar em Rede Local (LAN): coloque o IP local do Host (ex: 192.168.1.15)
-#   - Para jogar pela Internet (Hamachi / Radmin VPN / Tailscale): coloque o IP do Host na VPN (ex: 26.x.x.x)
-#   - Para jogar direto pela Internet: coloque o IP público do Host (Host precisa abrir a porta 31847 UDP no roteador)
+#   - Para jogar em Rede Local (LAN / mesmo Wi-Fi): coloque o IPv4 local do Host (ex: 192.168.1.15)
+#   - Para jogar direto pela Internet: coloque o IP público do Host (Host abre a porta 31847 UDP no roteador)
+#   - Para jogar via Playit.gg ou Túnel: coloque o IP:PORTA (ex: 147.185.221.16:12345)
+#   - Para jogar via VPN (Tailscale / ZeroTier / Radmin): coloque o IP virtual do Host (ex: 26.x.x.x)
 
 127.0.0.1
