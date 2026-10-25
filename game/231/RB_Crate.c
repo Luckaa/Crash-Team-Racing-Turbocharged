@@ -84,7 +84,7 @@ void RB_CrateAny_ThTick_Explode(struct Thread *t)
 
 static int RB_CrateAny_ShouldPlayBreakSound(struct Driver *driver)
 {
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsConnected() && (driver != NULL) && (driver != (struct Driver *)1) && ((driver->actionsFlagSet & ACTION_BOT) == 0))
 	{
 		return NativeAdhoc_ShouldPresentDriver(driver->driverID);
@@ -298,7 +298,7 @@ int RB_CrateWeapon_ThCollide(struct Thread *crateThread, struct Thread *collidin
 
 			if ((sdata->gGT->gameMode1 & ROLLING_ITEM) == 0)
 			{
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 				if (!NativeAdhoc_IsConnected())
 #endif
 				{
@@ -505,7 +505,7 @@ int RB_CrateTime_ThCollide(struct Thread *crateThread, struct Thread *driverTh, 
 				gGT->frozenTimeRemaining += 0xb40;
 				gGT->timeCrateTypeSmashed = 3;
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 				if (NativeAdhoc_ShouldPresentDriver(driver->driverID))
 #endif
 				{

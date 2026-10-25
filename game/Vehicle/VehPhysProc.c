@@ -416,7 +416,7 @@ void VehPhysProc_Driving_PhysLinear(struct Thread *thread, struct Driver *driver
 			}
 
 			// sound of getting weapon
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (NativeAdhoc_ShouldPresentDriver(driver->driverID))
 #endif
 			{
@@ -2006,7 +2006,7 @@ void VehPhysProc_PowerSlide_Update(struct Thread *t, struct Driver *d)
 			// If bar is full
 			if (meterLeft == 0)
 			{
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 				if (NativeAdhoc_ShouldPresentDriver(d->driverID))
 #endif
 				{
@@ -2490,7 +2490,7 @@ void VehPhysProc_SpinFirst_Init(struct Thread *t, struct Driver *d)
 		RB_Player_ModifyWumpa(d, -1);
 	}
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	int interactionDriverID = d->pendingDamageAttacker != NULL ? d->pendingDamageAttacker->driverID : -1;
 	if (NativeAdhoc_ShouldPresentInteractionVoice(d->driverID, interactionDriverID))
 #endif

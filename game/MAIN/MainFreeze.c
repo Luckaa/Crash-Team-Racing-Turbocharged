@@ -41,7 +41,7 @@ b32 MainFreeze_ConsumeAdventureCharacterChange(void)
 #include "platform/native_adhoc.h"
 #endif
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 static struct MenuRow s_nativeAdhocPauseRows[] =
 {
 	{LNG_RESUME, 1, 1, 0, 0},
@@ -860,7 +860,7 @@ void MainFreeze_MenuPtrQuit(struct RectMenu *menu)
 		row = menu->rowSelected;
 		if (row == 0)
 		{
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (NativeAdhoc_IsActive())
 			{
 				GhostTape_Destroy();
@@ -1034,7 +1034,7 @@ void MainFreeze_MenuPtrDefault(struct RectMenu *menu)
 
 	MainFreeze_SafeAdvDestroy();
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsActive() && ((stringID == 1) || (stringID == 4) || (stringID == 5) || (stringID == 6)))
 	{
 		gGT->gameMode1 &= ~PAUSE_1;
@@ -1215,7 +1215,7 @@ struct RectMenu *MainFreeze_GetMenuPtr(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
 	u32 gameMode = gGT->gameMode1;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsActive())
 	{
 		return &s_nativeAdhocPauseMenu;

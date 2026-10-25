@@ -186,7 +186,7 @@ void VehPhysCrash_AI(struct Driver *bot, Vec3 *vel)
 
 static int VehPhysCrash_ShouldPlayLocalFeedback(struct Driver *driver, struct Driver *otherDriver)
 {
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsConnected() && (driver != NULL) && (driver->driverID < 2))
 	{
 		return NativeAdhoc_ShouldPresentInteractionVoice(
@@ -240,7 +240,7 @@ int VehPhysCrash_Attack(struct Driver *driver1, struct Driver *driver2, b32 canP
 
 				if (boolPlayBubblePop != 0)
 				{
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 					if (NativeAdhoc_ShouldPresentDriver(driver2->driverID))
 #endif
 					{

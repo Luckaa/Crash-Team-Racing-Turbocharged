@@ -22,6 +22,15 @@ void LOAD_GlobalModelPtrs_MPK()
 		gGT->modelPtr[m->id] = m;
 	}
 
+#if defined(CTR_NATIVE)
+	struct Model *d4 = NativeAdhoc_GetDriver4Model();
+	if (d4 != NULL && d4->id != -1)
+	{
+		gGT->modelPtr[d4->id] = d4;
+	}
+#endif
+
+
 	if (sdata->PLYROBJECTLIST != 0)
 	{
 		LibraryOfModels_Store(gGT, -1, (struct Model **)sdata->PLYROBJECTLIST);

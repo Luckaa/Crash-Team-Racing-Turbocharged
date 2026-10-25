@@ -1,6 +1,6 @@
 #include <common.h>
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 #include "platform/native_adhoc.h"
 #endif
 
@@ -51,6 +51,8 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 	{
 		return loadingStage;
 	}
+
+	Platform_Log("[CTR Load] Executing stage %d (queueLen=%d)\n", loadingStage, (int)sdata->queueLength);
 
 	levelID = gGT->levelID;
 
@@ -121,7 +123,7 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 
 		gGT->level1 = 0;
 		gGT->level2 = 0;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		int nativeAdhocRacePrepared = NativeAdhoc_EnforcePreparedRaceConfig(gGT);
 #endif
 		gGT->numPlyrCurrGame = gGT->numPlyrNextGame;
@@ -197,7 +199,7 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 
 
 		// main menu or adv garage
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (nativeAdhocRacePrepared)
 		{
 			// Adhoc simulates retail 2P, but presents one fullscreen camera. Load the
@@ -354,6 +356,10 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 		{
 			data.driverModelExtras[i].fileBase = NULL;
 		}
+#if defined(CTR_NATIVE)
+		NativeAdhoc_ResetDriver4Model();
+#endif
+
 
 		// NOTE(aalhendi): Retail gates stage advancement until the driver MPK callback sets ptrMPK.
 		sdata->load_inProgress = 1;
@@ -421,6 +427,7 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 		}
 
 #if defined(CTR_NATIVE)
+		NativeAdhoc_FinalizeDriver4Model();
 		NativeAIRandomizer_FinalizeModels();
 #endif
 

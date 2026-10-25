@@ -6,7 +6,7 @@
 
 static inline int VehPickupItem_ShouldPlayLocalDriverFx(struct Driver *driver)
 {
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsConnected() && (driver != NULL) && (driver->driverID < 2))
 	{
 		return NativeAdhoc_ShouldPresentDriver(driver->driverID);

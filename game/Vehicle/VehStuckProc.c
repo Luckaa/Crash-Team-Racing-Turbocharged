@@ -1036,7 +1036,7 @@ void VehStuckProc_RevEngine_Animate(struct Thread *t, struct Driver *d)
 				d->KartStates.RevEngine.chargeState = REV_ENGINE_CHARGE_IDLE;
 				d->KartStates.RevEngine.lockoutFlags |= REV_ENGINE_LOCKOUT_ALL;
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 				if (NativeAdhoc_ShouldPresentDriver(d->driverID))
 #endif
 				{

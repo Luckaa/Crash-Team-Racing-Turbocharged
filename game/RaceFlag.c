@@ -255,7 +255,7 @@ u32 *RaceFlag_GetOT(void)
 	otDrawFirst_FarthestDepth = (u32 *)&gGT->pushBuffer[0].ptrOT[0x3FF];
 	otDrawLast_ClosestDepth = gGT->otSwapchainDB[gGT->swapchainIndex];
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		struct PushBuffer *adhocPB = NativeAdhoc_GetRenderPushBuffer();

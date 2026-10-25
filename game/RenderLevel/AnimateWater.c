@@ -73,6 +73,13 @@ void AnimateQuadVertex(int timer, struct SCVert *scVert, u32 *visBits)
 void AnimateQuad(int timer, int numSCVert, struct SCVert *scVert, int *visSCVertList)
 {
 	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80069e70-0x80069f0c.
+#if defined(CTR_NATIVE)
+	if (numSCVert <= 0 || scVert == NULL || visSCVertList == NULL)
+	{
+		return;
+	}
+#endif
+
 	u32 *visList = (u32 *)visSCVertList;
 	u32 visBits = *visList++;
 	int bitCount = 32;
@@ -152,9 +159,17 @@ static void AnimateWater_Common(int timer, int numWaterVertices, struct WaterVer
 #if defined(CTR_NATIVE)
 	// NOTE(aalhendi): CTR_NATIVE divergence, not retail ASM: native tracks can
 	// supply empty water lists with null water data.
-	if (numWaterVertices == 0)
+	if (numWaterVertices <= 0 || waterVert == NULL || waterEnvMap == NULL || visLists == NULL)
 	{
 		return;
+	}
+
+	for (int i = 0; i < numLists; i++)
+	{
+		if (visLists[i] == NULL)
+		{
+			return;
+		}
 	}
 #endif
 

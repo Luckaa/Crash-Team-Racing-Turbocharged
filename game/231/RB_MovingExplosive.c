@@ -57,7 +57,7 @@ void RB_MovingExplosive_ThTick(struct Thread *t)
 			sound = 0x59;
 		}
 	LAB_800adc00:
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (((modelID != DYNAMIC_SHIELD) && (modelID != DYNAMIC_SHIELD_GREEN)) ||
 		    (tw->driverParent == NULL) || NativeAdhoc_ShouldPresentDriver(tw->driverParent->driverID))
 #endif

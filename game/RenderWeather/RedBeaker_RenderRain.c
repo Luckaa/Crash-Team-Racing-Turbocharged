@@ -284,7 +284,7 @@ void RedBeaker_RenderRain(struct PushBuffer *pb, struct PrimMem *primMem, struct
 		screenBounds = RedBeaker_ReadWord(pb, 0x20);
 		otBase = pb->ptrOT;
 		int instancePlayerIndex = playerIndex;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (NativeAdhoc_IsSingleViewRenderActive())
 		{
 			instancePlayerIndex = NativeAdhoc_GetLocalPlayerIndex();

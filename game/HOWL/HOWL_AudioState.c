@@ -203,8 +203,8 @@ void Audio_SetMaskSong(u32 tempo)
 {
 	struct GameTracker *gGT = sdata->gGT;
 
-#if defined(__vita__)
-	if (NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame == 2))
+#if defined(CTR_NATIVE)
+	if (NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame >= 2))
 	{
 		int localPlayer = NativeAdhoc_GetLocalPlayerIndex();
 		int songID = 0;

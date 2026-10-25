@@ -320,7 +320,7 @@ void EngineSound_Player(struct Driver *driver)
 
 	u32 echo = ((driver->actionsFlagSet & ACTION_ENGINE_ECHO) != 0) ? 1 : 0;
 	u32 engineSlot = ((engine * 4) + id) & 0xffff;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (!NativeAdhoc_ShouldPresentDriver(id))
 	{
 		EngineAudio_Stop(engineSlot);

@@ -104,7 +104,7 @@ u32 main(void)
 		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003c5d0-0x8003c5dc for per-frame XA pause handling.
 		CDSYS_XAPauseAtEnd();
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (NativeAdhoc_ShouldReturnToMainMenu() && (sdata->Loading.stage == LOAD_IDLE))
 		{
 			gGT = sdata->gGT;
@@ -166,7 +166,10 @@ u32 main(void)
 
 		// Happens on first frame that loading ends
 		case 1:
-
+#if defined(CTR_NATIVE)
+			Platform_Log("[CTR Main] mainGameState 1: post-load start (levelID=%d, currLEV=%d, numPlyr=%d)\n",
+			             gGT->levelID, gGT->currLEV, gGT->numPlyrCurrGame);
+#endif
 			ElimBG_Deactivate(gGT);
 
 			MainStats_RestartRaceCountLoss();
@@ -195,6 +198,9 @@ u32 main(void)
 			DropRain_Reset(gGT);
 			GAMEPROG_GetPtrHighScoreTrack();
 			MainInit_FinalizeInit(gGT);
+#if defined(CTR_NATIVE)
+			Platform_Log("[CTR Main] mainGameState 1: FinalizeInit completed\n");
+#endif
 
 #if defined(CTR_NATIVE)
 			if ((gGT->levelID == NAUGHTY_DOG_CRATE) && (gNativeBootSkipRequested != 0))
@@ -231,7 +237,7 @@ u32 main(void)
 			                                        // Battle tracks
 			                                        gGT->levelID - NITRO_COURT < 7))
 			{
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 				if (!(NativeAdhoc_IsConnected() && (uVar12 == AUDIO_RACE_INTRO)))
 #endif
 				{
@@ -356,6 +362,9 @@ u32 main(void)
 					// If just finished loading stage 9
 					if (sdata->Loading.stage == LOAD_FINISHED)
 					{
+#if defined(CTR_NATIVE)
+						Platform_Log("[CTR Main] Loading stage LOAD_FINISHED reached! Transitioning to mainGameState 1\n");
+#endif
 						if ((gGT->levelID == MAIN_MENU_LEVEL) || (gGT->levelID == SCRAPBOOK))
 						{
 							MainLoadVLC();
@@ -387,7 +396,7 @@ u32 main(void)
 				nativeAdhocRunSimulation = NativeAdhoc_BeginSimulationFrame(gGT);
 				if (!nativeAdhocRunSimulation)
 				{
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 					if (NativeAdhoc_ShouldReturnToMainMenu())
 					{
 						continue;

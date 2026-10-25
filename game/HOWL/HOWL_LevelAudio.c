@@ -374,8 +374,8 @@ void PlaySound3D(u32 soundID, struct Instance *inst)
 	u32 closestDistance = 9000;
 	int closestCamera = 0;
 
-#if defined(__vita__)
-	if (NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame == 2) && ((gGT->gameMode1 & MAIN_MENU) == 0))
+#if defined(CTR_NATIVE)
+	if (NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame >= 2) && ((gGT->gameMode1 & MAIN_MENU) == 0))
 	{
 		int i = NativeAdhoc_GetLocalPlayerIndex();
 		dir[i][0] = CTR_MipsSubLo(inst->matrix.t[0], gGT->pushBuffer[i].pos.x);
@@ -456,8 +456,8 @@ void PlaySound3D_Flags(u32 *flags, u32 soundID, struct Instance *inst)
 		return;
 	}
 
-#if defined(__vita__)
-	if (NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame == 2) && ((gGT->gameMode1 & MAIN_MENU) == 0))
+#if defined(CTR_NATIVE)
+	if (NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame >= 2) && ((gGT->gameMode1 & MAIN_MENU) == 0))
 	{
 		int i = NativeAdhoc_GetLocalPlayerIndex();
 		dir[i][0] = CTR_MipsSubLo(inst->matrix.t[0], gGT->pushBuffer[i].pos.x);

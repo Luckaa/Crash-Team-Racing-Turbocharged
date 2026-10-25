@@ -181,7 +181,7 @@ void UI_ThTick_CountPickup(struct Thread *bucket)
 			                       : ((s16)sdata->wumpaShineResult - UI_REWARD_WUMPA_SHINE_CENTER) << UI_REWARD_WUMPA_SHINE_SHIFT;
 
 #if CTR_NATIVE_HAS_ADHOC
-			if (NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame == 2) &&
+			if (NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame >= 2) &&
 			    (owner == NativeAdhoc_GetLocalPlayerIndex()))
 			{
 				struct UiElement2D *hud = &data.hudStructPtr[0][UI_HUD_SLOT_FRUIT_MODEL];
@@ -302,14 +302,14 @@ void UI_ThTick_big1(struct Thread *bucket)
 		inst->flags |= HIDE_MODEL;
 	}
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	struct GameTracker *gGT = sdata->gGT;
-	if (NativeAdhoc_IsConnected() && (gGT != NULL) && (gGT->numPlyrCurrGame == 2) && ((gGT->gameMode1 & MAIN_MENU) == 0))
+	if (NativeAdhoc_IsConnected() && (gGT != NULL) && (gGT->numPlyrCurrGame >= 2) && ((gGT->gameMode1 & MAIN_MENU) == 0))
 	{
 		int owner = -1;
 		int localPlayer = NativeAdhoc_GetLocalPlayerIndex();
 
-		for (int i = 0; i < 2; i++)
+		for (int i = 0; i < gGT->numPlyrCurrGame; i++)
 		{
 			if ((gGT->drivers[i] != NULL) && (gGT->drivers[i]->instBigNum == inst))
 			{

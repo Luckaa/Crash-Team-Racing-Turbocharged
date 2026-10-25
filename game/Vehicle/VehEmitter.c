@@ -759,7 +759,7 @@ static void VehEmitter_TerrainEffects(struct Thread *thread, struct Driver *d, s
 	if (thread->modelIndex == DYNAMIC_PLAYER)
 	{
 		u32 echo = ((d->actionsFlagSet & ACTION_ENGINE_ECHO) != 0);
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (!NativeAdhoc_ShouldPresentDriver(d->driverID))
 		{
 			OtherFX_RecycleMute(&d->driverAudioPtrs[2]);
@@ -791,7 +791,7 @@ static void VehEmitter_TerrainAudioAndFeedback(struct Thread *thread, struct Dri
 	int distort = VehCalc_MapToRange(absSpeedApprox, 0, VEH_EMITTER_TERRAIN_AUDIO_DISTORT_SPEED_MAX, VEH_EMITTER_TERRAIN_AUDIO_DISTORT_MIN,
 	                                 VEH_EMITTER_TERRAIN_AUDIO_DISTORT_MAX);
 	u32 echo = ((d->actionsFlagSet & ACTION_ENGINE_ECHO) != 0);
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (!NativeAdhoc_ShouldPresentDriver(d->driverID))
 	{
 		OtherFX_RecycleMute(&d->driverAudioPtrs[1]);
@@ -876,7 +876,7 @@ static void VehEmitter_SkidmarkAudio(struct Thread *thread, struct Driver *d, st
 		int panOffset = CTR_MipsSra(CTR_MipsSll((u8)d->simpTurnState, 24), 26);
 		u32 lr = (u32)CTR_MipsSubLo(HOWL_SFX_LR_CENTER, panOffset);
 		u32 echo = ((d->actionsFlagSet & ACTION_ENGINE_ECHO) != 0);
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (!NativeAdhoc_ShouldPresentDriver(d->driverID))
 		{
 			OtherFX_RecycleMute(&d->driverAudioPtrs[0]);

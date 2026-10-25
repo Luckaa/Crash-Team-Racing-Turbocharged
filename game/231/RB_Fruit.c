@@ -80,7 +80,7 @@ int RB_Fruit_ThCollide(struct Thread *fruitTh, struct Thread *driverTh, void *fu
 	fruitInst->scale.z = 0;
 	fruitInst->thread = NULL;
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (!NativeAdhoc_IsConnected() || (modelID != DYNAMIC_PLAYER) || NativeAdhoc_ShouldPresentDriver(driver->driverID))
 #endif
 	{

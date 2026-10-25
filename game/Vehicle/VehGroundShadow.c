@@ -454,7 +454,7 @@ void VehGroundShadow_Main(void)
 #endif
 	int playerFirst = numPlayers - 1;
 	int playerLast = 0;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		playerFirst = NativeAdhoc_GetLocalPlayerIndex();
@@ -465,7 +465,7 @@ void VehGroundShadow_Main(void)
 	for (int playerIndex = playerFirst; playerIndex >= playerLast; playerIndex--)
 	{
 		struct PushBuffer *pb = &gGT->pushBuffer[playerIndex];
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (NativeAdhoc_IsSingleViewRenderActive())
 		{
 			pb = NativeAdhoc_GetRenderPushBuffer();

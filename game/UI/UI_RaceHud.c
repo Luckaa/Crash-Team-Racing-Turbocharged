@@ -262,7 +262,7 @@ void UI_TrackerSelf(struct Driver *d)
 
 	struct PushBuffer *presentationPB = &gGT->pushBuffer[driverID];
 	int presentationEnabled = 1;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		presentationEnabled = driverID == (u16)NativeAdhoc_GetLocalPlayerIndex();
@@ -445,7 +445,7 @@ UpdateTrackerState:
 		}
 	}
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (!presentationEnabled)
 	{
 		return;

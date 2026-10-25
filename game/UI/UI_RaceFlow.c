@@ -127,8 +127,8 @@ void UI_RaceStart_IntroText1P(void)
 	gGT = sdata->gGT;
 	struct CameraDC *introCamera = &gGT->cameraDC[0];
 	struct PushBuffer *introPB = &gGT->pushBuffer[0];
-#if defined(__vita__)
-	if (NativeAdhoc_IsSingleViewRenderActive() && (gGT->numPlyrCurrGame == 2))
+#if defined(CTR_NATIVE)
+	if (NativeAdhoc_IsSingleViewRenderActive() && (gGT->numPlyrCurrGame >= 2))
 	{
 		introCamera = &gGT->cameraDC[NativeAdhoc_GetLocalPlayerIndex()];
 		struct PushBuffer *displayPB = NativeAdhoc_GetRenderPushBuffer();
@@ -177,9 +177,9 @@ void UI_RaceStart_IntroText1P(void)
 						goto LAB_80055930;
 					}
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 					if (NativeAdhoc_IsSingleViewRenderActive() &&
-					    (gGT->numPlyrCurrGame == 2) &&
+					    (gGT->numPlyrCurrGame >= 2) &&
 					    (NativeAdhoc_GetGameMode() == NATIVE_ADHOC_GAME_MODE_VS))
 					{
 						textID = LNG_VERSUS;
@@ -484,7 +484,7 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 		// go back to main menu
 		sdata->mainMenuState = MAIN_MENU_TITLE;
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (NativeAdhoc_IsActive())
 		{
 			NativeAdhoc_RequestReturnToMainMenu();

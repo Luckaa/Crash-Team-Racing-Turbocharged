@@ -79,7 +79,30 @@ void Platform_LogInit(const char *appName)
 {
 	if (s_logPath[0] == '\0')
 	{
-		int written = snprintf(s_logPath, sizeof(s_logPath), "%s.log", appName);
+		char safeName[256];
+		size_t i;
+		for (i = 0; appName && appName[i] != '\0' && i < sizeof(safeName) - 1; i++)
+		{
+			char c = appName[i];
+			if (c == ':' || c == '/' || c == '\\' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|')
+			{
+				safeName[i] = '_';
+			}
+			else
+			{
+				safeName[i] = c;
+			}
+		}
+		safeName[i] = '\0';
+
+		unsigned long pid = 0;
+#ifdef _WIN32
+		pid = (unsigned long)GetCurrentProcessId();
+#elif !defined(__vita__)
+		pid = (unsigned long)getpid();
+#endif
+
+		int written = snprintf(s_logPath, sizeof(s_logPath), "%s_%lu.log", safeName, pid);
 
 		if ((written < 0) || ((size_t)written >= sizeof(s_logPath)))
 		{

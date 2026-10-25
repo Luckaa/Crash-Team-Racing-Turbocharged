@@ -38,7 +38,7 @@ void QueueLoadTrack_MenuProc(struct RectMenu *menu)
 		gGT->gameMode1 &= ~(POINT_LIMIT | LIFE_LIMIT | TIME_LIMIT);
 	}
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (!NativeAdhoc_PrepareRaceLoad(gGT))
 	{
 		return;

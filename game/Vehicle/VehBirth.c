@@ -214,7 +214,7 @@ void VehBirth_TeleportSelf(struct Driver *d, u8 spawnFlag, int spawnPosY)
 	int spawnAtBoss;
 	int spawnOutsideBoss = 0;
 
-	if ((level1 == NULL) || (level1->ptr_mesh_info == NULL))
+	if ((level1 == NULL) || (level1->ptr_mesh_info == NULL) || (d == NULL) || (d->instSelf == NULL))
 	{
 		return;
 	}
@@ -528,7 +528,7 @@ void VehBirth_TeleportAll(struct GameTracker *gGT, u32 spawnFlags)
 	{
 		d = gGT->drivers[i];
 
-		if (d == NULL)
+		if ((d == NULL) || (d->instSelf == NULL) || (d->instSelf->thread == NULL))
 		{
 			continue;
 		}
@@ -585,6 +585,16 @@ struct Model *VehBirth_GetModelByName(char *searchName)
 			return m;
 		}
 	}
+
+#if defined(CTR_NATIVE)
+	{
+		struct Model *d4 = NativeAdhoc_GetDriver4Model();
+		if ((d4 != NULL) && (NativeCustomRacer_GetDriverSelection(3) < 0) && VehBirth_ModelNameEquals(d4, searchName))
+		{
+			return d4;
+		}
+	}
+#endif
 
 	struct Model **models = (struct Model **)sdata->PLYROBJECTLIST;
 
@@ -768,11 +778,42 @@ void VehBirth_NonGhost(struct Thread *t, int index)
 	m = NativeAIRandomizer_GetDriverModel(index);
 #endif
 	if (m == NULL)
+	{
 		m = VehBirth_GetModelByName(data.MetaDataCharacters[id].name_Debug);
+	}
+	if (m == NULL)
+	{
+		for (int i = 0; i < LOAD_DRIVER_MODEL_EXTRA_COUNT; i++)
+		{
+			if (data.driverModelExtras[i].model != NULL)
+			{
+				m = data.driverModelExtras[i].model;
+				break;
+			}
+		}
+#if defined(CTR_NATIVE)
+		if (m == NULL)
+		{
+			m = NativeAdhoc_GetDriver4Model();
+		}
+#endif
+	}
+	if (m == NULL && sdata->PLYROBJECTLIST != NULL)
+	{
+		struct Model **models = (struct Model **)sdata->PLYROBJECTLIST;
+		if (models[0] != NULL)
+		{
+			m = models[0];
+		}
+	}
 
-	struct Instance *inst = INSTANCE_Birth3D(m, m->name, t);
+	struct Instance *inst = (m != NULL) ? INSTANCE_Birth3D(m, m->name, t) : NULL;
 
 	t->inst = inst;
+#if defined(CTR_NATIVE)
+	Platform_Log("[CTR Birth] VehBirth_NonGhost player %d (charID=%d, name=%s): model=%p inst=%p\n",
+	             index, id, data.MetaDataCharacters[id].name_Debug, m, inst);
+#endif
 
 	// Wake
 	m = gGT->modelPtr[STATIC_WAKE];
@@ -798,7 +839,7 @@ void VehBirth_NonGhost(struct Thread *t, int index)
 	*/
 
 	inst = t->inst;
-	if (index < gGT->numPlyrCurrGame)
+	if ((inst != NULL) && (index < gGT->numPlyrCurrGame))
 	{
 		inst->flags |= OWNER_PUSHBUFFER_GATE;
 	}
@@ -822,7 +863,10 @@ void VehBirth_NonGhost(struct Thread *t, int index)
 	{
 		// dont update, make invisible
 		t->funcThTick = VehBirth_NullThread;
-		inst->flags |= HIDE_MODEL;
+		if (inst != NULL)
+		{
+			inst->flags |= HIDE_MODEL;
+		}
 	}
 }
 

@@ -1,0 +1,12 @@
+# Configuração de IP para Conexão Multiplayer (Crash Team Racing - Turbocharged)
+#
+# Se você for criar a sala (HOST):
+#   - Não precisa alterar nada! O host escuta em todas as interfaces na porta 31847.
+#
+# Se você for entrar na sala (JOIN):
+#   - Para jogar no mesmo PC (2 jogos abertos): mantenha 127.0.0.1
+#   - Para jogar em Rede Local (LAN): coloque o IP local do Host (ex: 192.168.1.15)
+#   - Para jogar pela Internet (Hamachi / Radmin VPN / Tailscale): coloque o IP do Host na VPN (ex: 26.x.x.x)
+#   - Para jogar direto pela Internet: coloque o IP público do Host (Host precisa abrir a porta 31847 UDP no roteador)
+
+127.0.0.1

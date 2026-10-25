@@ -197,7 +197,7 @@ void RB_Player_ModifyWumpa(struct Driver *driver, int wumpaDelta)
 	    (driver->numWumpas == DRIVER_WUMPA_JUICED_COUNT))
 	{
 		// Play "juiced up" sound
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (NativeAdhoc_ShouldPresentDriver(driver->driverID))
 #endif
 		{

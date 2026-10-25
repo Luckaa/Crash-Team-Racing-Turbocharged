@@ -315,7 +315,7 @@ void CAM_ClearScreen(struct GameTracker *gGT)
 	struct DB *backDB = gGT->backBuffer;
 	TILE *tile = backDB->primMem.cursor;
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		numPlyr = 1;
@@ -324,7 +324,7 @@ void CAM_ClearScreen(struct GameTracker *gGT)
 
 	for (s32 loop = 0; loop < numPlyr; loop++)
 	{
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		struct PushBuffer *pb = NativeAdhoc_IsSingleViewRenderActive() ? NativeAdhoc_GetRenderPushBuffer() : &gGT->pushBuffer[loop];
 #else
 		struct PushBuffer *pb = &gGT->pushBuffer[loop];
@@ -539,7 +539,7 @@ void CAM_StartOfRace(struct CameraDC *cDC)
 
 		// if 1 or less screens
 		cDC->transitionFrame = FPS_DOUBLE(0xA5);
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (!NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame > 1))
 #else
 		if (gGT->numPlyrCurrGame > 1)

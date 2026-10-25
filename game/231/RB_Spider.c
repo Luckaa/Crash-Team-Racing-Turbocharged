@@ -367,7 +367,7 @@ checkCollision:
 	if ((RB_Hazard_HurtDriver(victim, 1, 0, 0) != 0) && (prevKartState != KS_SPINNING))
 	{
 		OtherFX_Play(0x7b, 1);
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (NativeAdhoc_ShouldPresentDriver(victim->driverID))
 #endif
 		{

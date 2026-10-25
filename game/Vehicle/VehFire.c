@@ -79,7 +79,7 @@ void VehFire_Audio(struct Driver *driver, int speed_cap)
 		// distort
 		distortion = VEH_FIRE_AUDIO_DISTORT_HIGH;
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (NativeAdhoc_ShouldPresentDriver(driver->driverID))
 #endif
 		{
@@ -108,7 +108,7 @@ Skip:
 		echo = 1;
 	}
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_ShouldPresentDriver(driver->driverID))
 #endif
 	{

@@ -412,7 +412,7 @@ void UI_Map_DrawDrivers(struct UIMap *map, struct Thread *bucket, s16 *driverIco
 		// single fullscreen 1P presentation while retaining 2P simulation.
 		if ((gGT->numPlyrCurrGame & 1) == 0)
 		{
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (!NativeAdhoc_IsSingleViewRenderActive())
 #endif
 			{

@@ -2,6 +2,7 @@
 
 #if defined(CTR_NATIVE)
 #include "platform/native_minimap.h"
+#include "platform/native_adhoc.h"
 #endif
 
 enum TrackSelectVideoState
@@ -726,6 +727,21 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 		}
 		else
 #endif
+#if defined(CTR_NATIVE)
+		if (NativeAdhoc_IsActive() && (NativeAdhoc_GetRole() == NATIVE_ADHOC_ROLE_CLIENT))
+		{
+			NativeAdhoc_ClientArmRaceProposal();
+			if (NativeAdhoc_IsRaceConfigReady())
+			{
+				gGT->currLEV = NativeAdhoc_GetConfiguredLEV();
+				gGT->numLaps = NativeAdhoc_GetConfiguredLaps();
+				sdata->ptrDesiredMenu = &data.menuQueueLoadTrack;
+				return;
+			}
+			RECTMENU_ClearInput();
+		}
+		else
+#endif
 		{
 		int importantButton = sdata->buttonTapPerPlayer[0] & MM_TRACK_SELECT_INPUT;
 
@@ -925,7 +941,10 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 	MM_TrackSelect_Video_State(resetPreviewVideo);
 
 #if defined(CTR_NATIVE)
-	gGT->currLEV = NativeReverseTrack_GetTrackIdForPhysical(selectMenu[menu->rowSelected].levID);
+	if (!NativeAdhoc_IsActive() || (NativeAdhoc_GetRole() == NATIVE_ADHOC_ROLE_HOST))
+	{
+		gGT->currLEV = NativeReverseTrack_GetTrackIdForPhysical(selectMenu[menu->rowSelected].levID);
+	}
 #else
 	gGT->currLEV = selectMenu[menu->rowSelected].levID;
 #endif
@@ -1117,12 +1136,22 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 			// Keep the preview area clear while either the lap or Reverse chooser is open.
 			if (!rightSideMenuOpen)
 			{
-				DecalFont_DrawLine(sdata->lngStrings[LNG_SELECT_LEVEL_SELECT], (D230.trackSelect_titleTransition.currX + MM_TRACK_SELECT_TITLE_X),
-				                   (D230.trackSelect_titleTransition.currY + (u32)previewRect.y), FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+#if defined(CTR_NATIVE)
+				if (NativeAdhoc_IsActive() && (NativeAdhoc_GetRole() == NATIVE_ADHOC_ROLE_CLIENT))
+				{
+					DecalFont_DrawLine("AGUARDANDO HOST...", (D230.trackSelect_titleTransition.currX + MM_TRACK_SELECT_TITLE_X),
+					                   (D230.trackSelect_titleTransition.currY + (u32)previewRect.y + (MM_TRACK_SELECT_LEVEL_TEXT_Y_STEP >> 1)), FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+				}
+				else
+#endif
+				{
+					DecalFont_DrawLine(sdata->lngStrings[LNG_SELECT_LEVEL_SELECT], (D230.trackSelect_titleTransition.currX + MM_TRACK_SELECT_TITLE_X),
+					                   (D230.trackSelect_titleTransition.currY + (u32)previewRect.y), FONT_BIG, (JUSTIFY_CENTER | ORANGE));
 
-				DecalFont_DrawLine(sdata->lngStrings[LNG_LEVEL], (D230.trackSelect_titleTransition.currX + MM_TRACK_SELECT_TITLE_X),
-				                   (D230.trackSelect_titleTransition.currY + (u32)previewRect.y + MM_TRACK_SELECT_LEVEL_TEXT_Y_STEP), FONT_BIG,
-				                   (JUSTIFY_CENTER | ORANGE));
+					DecalFont_DrawLine(sdata->lngStrings[LNG_LEVEL], (D230.trackSelect_titleTransition.currX + MM_TRACK_SELECT_TITLE_X),
+					                   (D230.trackSelect_titleTransition.currY + (u32)previewRect.y + MM_TRACK_SELECT_LEVEL_TEXT_Y_STEP), FONT_BIG,
+					                   (JUSTIFY_CENTER | ORANGE));
+				}
 			}
 
 			// next, draw the map icon, below "SELECT LEVEL",

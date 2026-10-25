@@ -429,6 +429,10 @@ void RenderLists_PreInit()
 int RenderLists_Init1P2P(struct BSP *bspRoot, int *visLeafList, struct PushBuffer *pb, u32 LevRenderList, void *bspList, u8 numPlyr)
 {
 #if defined(CTR_NATIVE)
+	if (bspRoot == NULL || visLeafList == NULL || pb == NULL || LevRenderList == 0 || bspList == NULL)
+	{
+		return 0;
+	}
 	if (pb && NativeAspect_UsesExpandedVisibility())
 		RenderLists_PrepareNativeFrustum(pb);
 #endif
@@ -440,6 +444,10 @@ int RenderLists_Init1P2P(struct BSP *bspRoot, int *visLeafList, struct PushBuffe
 int RenderLists_Init3P4P(struct BSP *bspRoot, int *visLeafList, struct PushBuffer *pb, u32 LevRenderList, void *bspList)
 {
 #if defined(CTR_NATIVE)
+	if (bspRoot == NULL || visLeafList == NULL || pb == NULL || LevRenderList == 0 || bspList == NULL)
+	{
+		return 0;
+	}
 	if (pb && NativeAspect_UsesExpandedVisibility())
 		RenderLists_PrepareNativeFrustum(pb);
 #endif

@@ -60,7 +60,21 @@ int NativeAdhoc_GetStatus(void);
 int NativeAdhoc_GetGameMode(void);
 int NativeAdhoc_GetLocalPlayerIndex(void);
 int NativeAdhoc_GetRemotePlayerIndex(void);
+int NativeAdhoc_GetPlayerCount(void);
 u32 NativeAdhoc_GetSimulationFrame(void);
 const char *NativeAdhoc_GetStatusText(void);
+void NativeAdhoc_SetCustomHostIp(const char *ip);
+const char *NativeAdhoc_GetCustomHostIp(void);
+int NativeAdhoc_IsLobbyStarted(void);
+void NativeAdhoc_StartLobby(void);
+int NativeAdhoc_IsRaceConfigReady(void);
+s32 NativeAdhoc_GetConfiguredLEV(void);
+s32 NativeAdhoc_GetConfiguredLaps(void);
+void NativeAdhoc_ClientArmRaceProposal(void);
+void **NativeAdhoc_GetDriver4FileBasePtr(void);
+struct Model *NativeAdhoc_GetDriver4Model(void);
+void NativeAdhoc_FinalizeDriver4Model(void);
+void NativeAdhoc_ResetDriver4Model(void);
 
 #endif
+

@@ -118,7 +118,7 @@ void UI_JumpMeter_Update(struct Driver *driver)
 	{
 		if ((UI_JUMP_METER_LANDING_VOICELINE_MIN < driver->jump_LandingBoost) && (driver->jumpMeter < UI_JUMP_METER_LANDING_VOICELINE_CUTOFF))
 		{
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (NativeAdhoc_ShouldPresentDriver(driver->driverID))
 #endif
 			{

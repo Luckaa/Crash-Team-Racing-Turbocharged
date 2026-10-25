@@ -330,7 +330,7 @@ void VehTurbo_ThTick(struct Thread *turboThread)
 
 		// if echo is required
 		u32 echo = ((driver->actionsFlagSet & ACTION_ENGINE_ECHO) != 0);
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (!NativeAdhoc_ShouldPresentDriver(driver->driverID))
 		{
 			OtherFX_RecycleMute(&driver->driverAudioPtrs[TURBO_AUDIO_SLOT]);
@@ -421,7 +421,7 @@ void VehTurbo_ThTick(struct Thread *turboThread)
 				// add echo, volume, distortion, left/right
 				stopSfxParams = HOWL_SFX_CENTER_NO_DISTORTION | HOWL_SFX_ECHO_FLAG;
 			}
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (!NativeAdhoc_ShouldPresentDriver(driver->driverID))
 			{
 				OtherFX_RecycleMute(&driver->driverAudioPtrs[TURBO_AUDIO_SLOT]);

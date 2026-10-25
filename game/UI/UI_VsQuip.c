@@ -460,8 +460,8 @@ void UI_VsQuipDrawAll(void)
 
 	struct GameTracker *gGT = sdata->gGT;
 	struct Thread *thread;
-#if defined(__vita__)
-	int adhocSingleView = NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame == 2) &&
+#if defined(CTR_NATIVE)
+	int adhocSingleView = NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame >= 2) &&
 	                      (NativeAdhoc_GetGameMode() == NATIVE_ADHOC_GAME_MODE_VS);
 	int adhocLocalPlayer = adhocSingleView ? NativeAdhoc_GetLocalPlayerIndex() : 0;
 	struct PushBuffer adhocDisplayPB;
@@ -478,7 +478,7 @@ void UI_VsQuipDrawAll(void)
 	{
 		// get player struct from thread
 		d = (struct Driver *)thread->object;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (adhocSingleView && (d->driverID != adhocLocalPlayer))
 		{
 			continue;
@@ -532,7 +532,7 @@ void UI_VsQuipDrawAll(void)
 
 		// get current player's pushBuffer
 		RECT *r = &gGT->pushBuffer[playerIndex].rect;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (adhocSingleView)
 		{
 			r = &adhocDisplayPB.rect;
@@ -578,8 +578,8 @@ void UI_VsWaitForPressX(void)
 
 	struct GameTracker *gGT = sdata->gGT;
 	u8 numPlayers = gGT->numPlyrCurrGame;
-#if defined(__vita__)
-	int adhocSingleView = NativeAdhoc_IsConnected() && (numPlayers == 2) &&
+#if defined(CTR_NATIVE)
+	int adhocSingleView = NativeAdhoc_IsConnected() && (numPlayers >= 2 && numPlayers <= 4) &&
 	                      (NativeAdhoc_GetGameMode() == NATIVE_ADHOC_GAME_MODE_VS);
 	int adhocLocalPlayer = adhocSingleView ? NativeAdhoc_GetLocalPlayerIndex() : 0;
 	struct PushBuffer adhocDisplayPB;
@@ -599,7 +599,7 @@ void UI_VsWaitForPressX(void)
 
 		struct Driver *driver = gGT->drivers[playerIndex];
 		RECT *viewport = &gGT->pushBuffer[playerIndex].rect;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (adhocSingleView && (playerIndex == adhocLocalPlayer))
 		{
 			viewport = &adhocDisplayPB.rect;
@@ -703,7 +703,7 @@ void UI_VsWaitForPressX(void)
 		{
 			// Stop drawing comment + battle stats
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (!adhocSingleView)
 #endif
 			{

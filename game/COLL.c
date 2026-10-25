@@ -1540,7 +1540,7 @@ void COLL_FIXED_PlayerSearch(struct Thread *t, struct Driver *d)
 
 			if (d->kartState != KS_MASK_GRABBED)
 			{
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 				if (NativeAdhoc_ShouldPresentDriver(d->driverID))
 #endif
 				{
@@ -2755,7 +2755,7 @@ u32 COLL_MOVED_ScrubImpact(struct Driver *d, struct Thread *t, struct Scratchpad
 					u32 soundFlags = HowlSfx_Pack(HOWL_SFX_LR_CENTER, HOWL_SFX_DISTORTION_NONE, HOWL_SFX_VOLUME_MAX, echo);
 
 					int shouldPresentImpact = 1;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 					if (NativeAdhoc_IsConnected())
 					{
 						shouldPresentImpact = NativeAdhoc_ShouldPresentDriver(d->driverID);

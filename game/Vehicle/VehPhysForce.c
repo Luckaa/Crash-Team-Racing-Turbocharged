@@ -871,7 +871,7 @@ static void VehPhysForce_TranslateMatrix_UpdateSquashStretch(struct Instance *in
 	{
 		if (d->instSelf->thread->modelIndex == DYNAMIC_PLAYER)
 		{
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (NativeAdhoc_ShouldPresentDriver(d->driverID))
 #endif
 			{

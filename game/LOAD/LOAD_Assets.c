@@ -47,7 +47,7 @@ static b32 NativeAIRandomizer_ShouldUse(const struct GameTracker *gGT)
 		return false;
 	}
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsActive())
 	{
 		return false;
@@ -411,10 +411,40 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 		NativeCustomRacer_QueueSharedVramForSelections(bigfile);
 	}
 #endif
-#if defined(__vita__)
-	if (NativeAdhoc_EnforcePreparedRaceConfig(gGT))
+#if defined(CTR_NATIVE)
+	if (NativeAdhoc_IsActive())
 	{
-		levelLOD = LOAD_LEVEL_LOD_2P;
+		NativeAdhoc_EnforcePreparedRaceConfig(gGT);
+		int numPlyrs = (gGT != NULL && gGT->numPlyrCurrGame >= 2 && gGT->numPlyrCurrGame <= 4)
+		               ? gGT->numPlyrCurrGame : 2;
+
+		Platform_Log("[CTR Load] LOAD_DriverMPK: Adhoc multiplayer loading %d human drivers...\n", numPlyrs);
+
+		// Queue human driver models: 0 to min(numPlyrs, 3) - 1
+		int maxExtra = numPlyrs < LOAD_DRIVER_MODEL_EXTRA_COUNT ? numPlyrs : LOAD_DRIVER_MODEL_EXTRA_COUNT;
+		for (i = 0; i < maxExtra; i++)
+		{
+			if (!NativeCustomRacer_QueueSelectedModel(i, &data.driverModelExtras[i].fileBase))
+			{
+				LOAD_AppendQueue(bigfile, LT_GETADDR, BI_RACERMODELMED + data.characterIDs[i],
+				                 &data.driverModelExtras[i].fileBase, LOAD_DriverMPK_SetPointer);
+			}
+		}
+
+		// If 4th player exists, queue into dedicated slot
+		if (numPlyrs >= 4)
+		{
+			if (!NativeCustomRacer_QueueSelectedModel(3, NativeAdhoc_GetDriver4FileBasePtr()))
+			{
+				LOAD_AppendQueue(bigfile, LT_GETADDR, BI_RACERMODELMED + data.characterIDs[3],
+				                 NativeAdhoc_GetDriver4FileBasePtr(), LOAD_DriverMPK_SetPointer);
+			}
+		}
+
+		// Shared MPK: weapons, wumpa, icons, decals, traffic lights
+		// Always load 2P arcade pack, without touching human characterIDs!
+		LOAD_AppendQueue(bigfile, LT_GETADDR, BI_2PARCADEPACK, NULL, callback);
+		return sdata->ptrMPK;
 	}
 #endif
 	gameMode1 = gGT->gameMode1;
@@ -440,6 +470,7 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 		// load 4P MPK of fourth player
 		lastFileIndexMPK = BI_4PARCADEPACK + data.characterIDs[3];
 	}
+
 
 	else if (levelLOD == LOAD_LEVEL_LOD_1P)
 	{

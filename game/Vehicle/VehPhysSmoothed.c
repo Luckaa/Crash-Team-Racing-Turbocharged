@@ -602,7 +602,7 @@ CHECK_FOR_ANY_JUMP:
 			int jumpForce = CTR_MipsAddLo(CTR_MipsSll(d->const_JumpForce, 3), d->const_JumpForce);
 			d->jump_InitialVelY = (s16)(jumpForce / 4);
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (NativeAdhoc_ShouldPresentDriver(d->driverID))
 #endif
 			{
@@ -647,7 +647,7 @@ CHECK_FOR_ANY_JUMP:
 		d->numberOfJumps = (s16)CTR_MipsAddLo((u16)d->numberOfJumps, 1);
 		d->jump_InitialVelY = d->const_JumpForce;
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (NativeAdhoc_ShouldPresentDriver(d->driverID))
 #endif
 		{
@@ -658,7 +658,7 @@ CHECK_FOR_ANY_JUMP:
 	{
 		if ((d->jump_ForcedMS == 0) || (d->jump_InitialVelY == d->const_JumpForce))
 		{
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (NativeAdhoc_ShouldPresentDriver(d->driverID))
 #endif
 			{

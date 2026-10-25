@@ -56,7 +56,7 @@ global_variable s32 s_driverRankString222 = 0x20; // " \0"
 extern struct RectMenu menu222;
 extern struct RectMenu menu222_2P;
 extern struct RectMenu menu222BossFight;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 static struct RectMenu s_nativeAdhocRaceEndMenu;
 #endif
 
@@ -431,7 +431,7 @@ void AA_EndEvent_DrawMenu(void)
 		return;
 	}
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsConnected())
 	{
 		RECTMENU_Show(&s_nativeAdhocRaceEndMenu);
@@ -575,7 +575,7 @@ void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 	struct UiElement2D *hudArray = data.hudStructPtr[numPlayers - 1];
 	struct UiElement2D *hud = &hudArray[driverId * AA_HUD_ELEMENTS_PER_DRIVER];
 	struct Instance *bigNum = driver->instBigNum;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	u32 *adhocSavedPushUiOT = NULL;
 	u32 *adhocSavedDbUiOT = NULL;
 	if (NativeAdhoc_IsConnected() && (numPlayers == 2))
@@ -771,7 +771,7 @@ void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 
 	// Draw 2D Menu rectangle background
 	RECTMENU_DrawInnerRect(&timeBoxRect, 4, gGT->backBuffer->otMem.uiOT);
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (adhocSavedPushUiOT != NULL)
 	{
 		gGT->pushBuffer_UI.ptrOT = adhocSavedPushUiOT;
@@ -781,7 +781,7 @@ void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 	return;
 }
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 static struct MenuRow s_nativeAdhocRaceEndRows[] =
 {
 	{LNG_QUIT, 0, 0, 0, 0},

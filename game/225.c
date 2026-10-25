@@ -90,7 +90,7 @@ void VB_EndEvent_DrawMenu(void)
 #if CTR_NATIVE_60FPS
 	use30HzStep = CTR_RETAIL_FRAME_TICK(gGT->timer);
 #endif
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	b32 adhocSingleView = NativeAdhoc_IsConnected() && (numPlayers == 2) &&
 	                       (NativeAdhoc_GetGameMode() == NATIVE_ADHOC_GAME_MODE_VS);
 #else

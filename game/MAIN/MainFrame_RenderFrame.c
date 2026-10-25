@@ -34,6 +34,29 @@ static void MainFrame_AppendProjectionMarkers(struct GameTracker *gt)
 	// arena so a full arena cannot leave the expanded source camera unresolved.
 	static NativeProjectionMarker markers[5];
 	NativeGpuLinks_RegisterRangeChecked("projection barriers", markers, sizeof(markers));
+#if defined(CTR_NATIVE)
+	if (NativeAdhoc_IsSingleViewRenderActive())
+	{
+		struct PushBuffer *pb = NativeAdhoc_GetRenderPushBuffer();
+		if (pb == NULL) return;
+		NativeProjectionMarker *marker = &markers[0];
+		memset(marker, 0, sizeof(*marker));
+		marker->code = 0xB4000000u | 1;
+		setlen(marker, sizeof(*marker) / sizeof(u32) - P_LEN);
+		marker->rect = pb->rect;
+		const double h = pb->distanceToScreen_PREV > 0 ? pb->distanceToScreen_PREV : 256;
+		const double tanHalf = pb->rect.w / (2.0 * h * NativeAspect_GetScaleX() * NativeAspect_GetFocalScale());
+		NativeProjection_BuildParams(gNativeProjectionMode, gNativeProjectionStrength, tanHalf, &marker->params);
+		AddPrim(&pb->ptrOT[0x3ff], marker);
+
+		marker = &markers[1];
+		memset(marker, 0, sizeof(*marker));
+		marker->code = 0xB4000000u;
+		setlen(marker, sizeof(*marker) / sizeof(u32) - P_LEN);
+		AddPrim(&gt->pushBuffer_UI.ptrOT[4], marker);
+		return;
+	}
+#endif
 	for (int i = 0; i <= count; i++)
 	{
 		NativeProjectionMarker *marker = &markers[i];
@@ -89,7 +112,7 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 #if defined(CTR_NATIVE)
 	int nativeMirrorWorldActive = MainFrame_NativeMirrorWorldActive(gGT);
 	gNativeMirrorModeRenderActive = 0;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	NativeAdhoc_BeginRenderFrame(gGT);
 #endif
 	// Native storage was reset with the OT in MainFrame_ResetDB.
@@ -155,7 +178,7 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 	{
 		struct PushBuffer *starsPb = &gGT->pushBuffer[0];
 		int starsPlayers = gGT->numPlyrCurrGame;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (NativeAdhoc_IsSingleViewRenderActive())
 		{
 			starsPb = NativeAdhoc_GetRenderPushBuffer();
@@ -243,7 +266,7 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 			gNativeMirrorModeRenderActive = 0;
 			NativePgxp_SetWorldPhase(0);
 #endif
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (!NativeAdhoc_IsSingleViewRenderActive())
 #endif
 			{
@@ -268,7 +291,7 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 
 		if ((gGT->renderFlags & RENDER_FLAG_SPLIT_SCREEN_LINES) != 0)
 		{
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (!NativeAdhoc_IsSingleViewRenderActive())
 #endif
 			{
@@ -327,7 +350,7 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 	MAINFRAME_PERF_BEGIN(NATIVE_PERF_BUCKET_MAINFRAME_UI);
 	if ((gGT->renderFlags & RENDER_FLAG_CHECKERED_FLAG) != 0)
 	{
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (NativeAdhoc_IsReturningToMainMenu())
 		{
 			// Keep the loading state machine moving without emitting the flag or
@@ -346,7 +369,7 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 		}
 	}
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_ShouldDrawConnectionLostNotice())
 	{
 		DecalFont_DrawLine("ADHOC CONNECTION LOST", 0x100, 0x86, FONT_BIG, JUSTIFY_CENTER | RED);
@@ -369,7 +392,7 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 #endif
 
 	RenderSubmit(gGT);
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	NativeAdhoc_EndRenderFrame();
 #endif
 }
@@ -384,8 +407,8 @@ void DrawUnpluggedMsg(struct GameTracker *gGT, struct GamepadSystem *gGamepads)
 
 	skipMainMenuTopLevel = 0;
 
-#if defined(__vita__)
-	if (NativeAdhoc_IsActive() && (gGT->numPlyrNextGame == 2))
+#if defined(CTR_NATIVE)
+	if (NativeAdhoc_IsActive() && (gGT->numPlyrNextGame >= 2))
 	{
 		return;
 	}
@@ -501,7 +524,7 @@ void DrawFinalLap(struct GameTracker *gGT)
 		// 90 frames total in animation, 1.5 seconds
 		textTimer = FPS_DOUBLE(90) - textTimer;
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (NativeAdhoc_IsSingleViewRenderActive())
 		{
 			if (i != NativeAdhoc_GetLocalPlayerIndex())
@@ -606,7 +629,7 @@ void RenderAllWeather(struct GameTracker *gGT)
 {
 	int numPlyrCurrGame = gGT->numPlyrCurrGame;
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		int localIndex = NativeAdhoc_GetLocalPlayerIndex();
@@ -667,8 +690,8 @@ void RenderAllHUD(struct GameTracker *gGT)
 
 	// if drawing intro-race title bars
 	int onePlayerIntroPresentation = gGT->numPlyrCurrGame == 1;
-#if defined(__vita__)
-	if (NativeAdhoc_IsSingleViewRenderActive() && (gGT->numPlyrCurrGame == 2))
+#if defined(CTR_NATIVE)
+	if (NativeAdhoc_IsSingleViewRenderActive() && (gGT->numPlyrCurrGame >= 2))
 	{
 		onePlayerIntroPresentation = 1;
 	}
@@ -848,7 +871,7 @@ void RenderAllBeakerRain(struct GameTracker *gGT)
 		return;
 	}
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		struct PushBuffer *displayPB = NativeAdhoc_GetRenderPushBuffer();
@@ -886,7 +909,7 @@ void RenderBucket_QueueAllInstances(struct GameTracker *gGT)
 		return;
 	}
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		renderPlayerCount = 1;
@@ -931,7 +954,7 @@ void RenderAllNormalParticles(struct GameTracker *gGT)
 	// shifted left by 2, so view Z is 4x too far.
 	float nativeDepthContext = NativePgxp_SetDepthContext(0.25f);
 #endif
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		Particle_RenderList(NativeAdhoc_GetRenderPushBuffer(), gGT->particleList_ordinary);
@@ -956,7 +979,7 @@ void RenderDispEnv_World(struct GameTracker *gGT)
 	int i;
 	struct PushBuffer *pb;
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		pb = NativeAdhoc_GetRenderPushBuffer();
@@ -987,7 +1010,7 @@ void RenderAllFlag0x40(struct GameTracker *gGT)
 		RB_Blowup_ProcessBucket(gGT->threadBuckets[BLOWUP].thread);
 
 		RB_Spider_DrawWebs(gGT->threadBuckets[SPIDER].thread,
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			NativeAdhoc_IsSingleViewRenderActive() ? NativeAdhoc_GetRenderPushBuffer() :
 #endif
 			&gGT->pushBuffer[0]);
@@ -1007,7 +1030,7 @@ void RenderAllFlag0x40(struct GameTracker *gGT)
 
 	int i;
 	struct PushBuffer *pb;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		pb = NativeAdhoc_GetRenderPushBuffer();
@@ -1095,7 +1118,7 @@ void RenderAllHeatParticles(struct GameTracker *gGT)
 		return;
 	}
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		return;
@@ -1144,6 +1167,7 @@ static void RenderAllLevelGeometry_ApplyNativeMaxLod(struct MainRenderLevelGeome
 }
 
 // Native split screen: render each viewport through the proven 1P geometry
+// Native split screen: render each viewport through the proven 1P geometry
 // path used by AdHoc single-view rendering.
 static void RenderAllLevelGeometry_NativeViewports(struct GameTracker *gGT, struct Level *level1, struct mesh_info *ptr_mesh_info)
 {
@@ -1152,6 +1176,10 @@ static void RenderAllLevelGeometry_NativeViewports(struct GameTracker *gGT, stru
 	for (int i = 0; i < gGT->numPlyrCurrGame; i++)
 	{
 		struct PushBuffer *pushBuffer = &gGT->pushBuffer[i];
+		if (gGT->visMem1 == NULL || gGT->visMem1->visLeafList[i] == NULL || gGT->visMem1->bspList[i] == NULL || gGT->visMem1->visFaceList[i] == NULL)
+		{
+			continue;
+		}
 		s32 distToScreen = pushBuffer->distanceToScreen_PREV;
 
 		scratch->depthScale = RenderAllLevelGeometry_ScaleDistanceShift8(distToScreen, 0x2080);
@@ -1180,6 +1208,12 @@ static void RenderAllLevelGeometry_NativeViewports(struct GameTracker *gGT, stru
 // projecting overlays. The sky and glow keep their retail packets.
 static void RenderAllLevelGeometry_Native(struct GameTracker *gGT, struct Level *level1, struct mesh_info *ptr_mesh_info)
 {
+#if defined(CTR_NATIVE)
+	if (NativeAdhoc_IsSingleViewRenderActive())
+	{
+		return;
+	}
+#endif
 	struct MainRenderLevelGeometryScratch *scratch = CTR_SCRATCHPAD_PTR(struct MainRenderLevelGeometryScratch, 0);
 	const int numPlyrCurrGame = gGT->numPlyrCurrGame;
 	int *const *visOVert = gGT->visMem1->visOVertList;
@@ -1217,6 +1251,10 @@ static void RenderAllLevelGeometry_Native(struct GameTracker *gGT, struct Level 
 	for (int i = 0; i < numPlyrCurrGame; i++)
 	{
 		struct PushBuffer *pushBuffer = &gGT->pushBuffer[i];
+		if (gGT->visMem1 == NULL || gGT->visMem1->visLeafList[i] == NULL || gGT->visMem1->bspList[i] == NULL || gGT->visMem1->visFaceList[i] == NULL)
+		{
+			continue;
+		}
 
 		if ((numPlyrCurrGame == 1) &&
 		    ((gGT->levelID == ADVENTURE_GARAGE) || (((gGT->gameMode1 & GAME_CUTSCENE) != 0) && (gGT->levelID != INTRO_CRASH))))
@@ -1283,15 +1321,7 @@ void RenderAllLevelGeometry(struct GameTracker *gGT, struct Level *level1, struc
 
 	numPlyrCurrGame = gGT->numPlyrCurrGame;
 
-#if NATIVE_DRAW3D_SUPPORTED
-	if (NATIVE_DRAW3D_ACTIVE())
-	{
-		RenderAllLevelGeometry_Native(gGT, level1, ptr_mesh_info);
-		return;
-	}
-#endif
-
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		const int renderSlot = 0;
@@ -1301,12 +1331,20 @@ void RenderAllLevelGeometry(struct GameTracker *gGT, struct Level *level1, struc
 
 		if ((level1->configFlags & 4) == 0)
 		{
-			AnimateWater1P(FPS_HALF(gGT->timer), level1->numWaterVertices, level1->ptr_water, level1->ptr_tex_waterEnvMap,
-			               gGT->visMem1->visOVertList[renderSlot]);
+			if (gGT->visMem1 != NULL && gGT->visMem1->visOVertList[renderSlot] != NULL &&
+			    level1->ptr_water != NULL && level1->numWaterVertices > 0 && level1->ptr_tex_waterEnvMap != NULL)
+			{
+				AnimateWater1P(FPS_HALF(gGT->timer), level1->numWaterVertices, level1->ptr_water, level1->ptr_tex_waterEnvMap,
+				               gGT->visMem1->visOVertList[renderSlot]);
+			}
 		}
 		else
 		{
-			AnimateQuad(FPS_HALF((s64)gGT->timer * 128), level1->numSCVert, level1->ptrSCVert, gGT->visMem1->visSCVertList[renderSlot]);
+			if (gGT->visMem1 != NULL && gGT->visMem1->visSCVertList[renderSlot] != NULL &&
+			    level1->ptrSCVert != NULL && level1->numSCVert > 0)
+			{
+				AnimateQuad(FPS_HALF((s64)gGT->timer * 128), level1->numSCVert, level1->ptrSCVert, gGT->visMem1->visSCVertList[renderSlot]);
+			}
 		}
 
 		scratch = CTR_SCRATCHPAD_PTR(struct MainRenderLevelGeometryScratch, 0);
@@ -1333,23 +1371,50 @@ void RenderAllLevelGeometry(struct GameTracker *gGT, struct Level *level1, struc
 			scratch->fullDynamicFadeDepthStart = CTR_MipsAddLo(scratch->bspLodDistanceThreshold, MAIN_RENDER_LEVEL_GEOMETRY_FULL_DYNAMIC_FADE_OFFSET);
 		}
 
+#if NATIVE_DRAW3D_SUPPORTED
+		if (NATIVE_DRAW3D_ACTIVE())
+		{
+			RenderAllLevelGeometry_ApplyNativeMaxLod(scratch);
+		}
+#endif
+
 		RenderLists_PreInit();
 		gGT->bspLeafsDrawn = 0;
-		gGT->bspLeafsDrawn += RenderLists_Init1P2P(
-			ptr_mesh_info->bspRoot,
-			gGT->visMem1->visLeafList[renderSlot],
-			pushBuffer,
-			(u32)&gGT->LevRenderLists[renderSlot],
-			gGT->visMem1->bspList[renderSlot],
-			1);
+		if (gGT->visMem1 != NULL && ptr_mesh_info != NULL && ptr_mesh_info->bspRoot != NULL &&
+		    gGT->visMem1->visLeafList[renderSlot] != NULL && gGT->visMem1->bspList[renderSlot] != NULL &&
+		    gGT->visMem1->visFaceList[renderSlot] != NULL)
+		{
+			gGT->bspLeafsDrawn += RenderLists_Init1P2P(
+				ptr_mesh_info->bspRoot,
+				gGT->visMem1->visLeafList[renderSlot],
+				pushBuffer,
+				(u32)&gGT->LevRenderLists[renderSlot],
+				gGT->visMem1->bspList[renderSlot],
+				1);
 
-		DrawLevelOvr1P(
-			&gGT->LevRenderLists[renderSlot],
-			pushBuffer,
-			(struct BSP *)ptr_mesh_info,
-			&gGT->backBuffer->primMem,
-			gGT->visMem1->visFaceList[renderSlot],
-			level1->ptr_tex_waterEnvMap);
+#if NATIVE_DRAW3D_SUPPORTED
+			if (NATIVE_DRAW3D_ACTIVE())
+			{
+				NativeDrawLevel_Viewport(
+					pushBuffer,
+					&gGT->backBuffer->primMem,
+					ptr_mesh_info,
+					&gGT->LevRenderLists[renderSlot],
+					gGT->visMem1->visFaceList[renderSlot],
+					level1->ptr_tex_waterEnvMap);
+			}
+			else
+#endif
+			{
+				DrawLevelOvr1P(
+					&gGT->LevRenderLists[renderSlot],
+					pushBuffer,
+					(struct BSP *)ptr_mesh_info,
+					&gGT->backBuffer->primMem,
+					gGT->visMem1->visFaceList[renderSlot],
+					level1->ptr_tex_waterEnvMap);
+			}
+		}
 
 		DrawSky_Full(level1->ptr_skybox, pushBuffer, &gGT->backBuffer->primMem);
 
@@ -1357,6 +1422,14 @@ void RenderAllLevelGeometry(struct GameTracker *gGT, struct Level *level1, struc
 		{
 			CAM_SkyboxGlow(&level1->glowGradient[0], pushBuffer, &gGT->backBuffer->primMem, &pushBuffer->ptrOT[0x3ff]);
 		}
+		return;
+	}
+#endif
+
+#if NATIVE_DRAW3D_SUPPORTED
+	if (NATIVE_DRAW3D_ACTIVE())
+	{
+		RenderAllLevelGeometry_Native(gGT, level1, ptr_mesh_info);
 		return;
 	}
 #endif
@@ -1372,14 +1445,22 @@ void RenderAllLevelGeometry(struct GameTracker *gGT, struct Level *level1, struc
 		if ((level1->configFlags & 4) == 0)
 		{
 			// assume OVert (no primitives generated here)
-			AnimateWater1P(FPS_HALF(gGT->timer), level1->numWaterVertices, level1->ptr_water, level1->ptr_tex_waterEnvMap, gGT->visMem1->visOVertList[0]);
+			if (gGT->visMem1 != NULL && gGT->visMem1->visOVertList[0] != NULL &&
+			    level1->ptr_water != NULL && level1->numWaterVertices > 0 && level1->ptr_tex_waterEnvMap != NULL)
+			{
+				AnimateWater1P(FPS_HALF(gGT->timer), level1->numWaterVertices, level1->ptr_water, level1->ptr_tex_waterEnvMap, gGT->visMem1->visOVertList[0]);
+			}
 		}
 
 		// if SCVert
 		else
 		{
 			// draw SCVert (no primitives generated here
-			AnimateQuad(FPS_HALF((s64)gGT->timer * 128), level1->numSCVert, level1->ptrSCVert, gGT->visMem1->visSCVertList[0]);
+			if (gGT->visMem1 != NULL && gGT->visMem1->visSCVertList[0] != NULL &&
+			    level1->ptrSCVert != NULL && level1->numSCVert > 0)
+			{
+				AnimateQuad(FPS_HALF((s64)gGT->timer * 128), level1->numSCVert, level1->ptrSCVert, gGT->visMem1->visSCVertList[0]);
+			}
 		}
 
 		// camera of player 1
@@ -1595,8 +1676,8 @@ void WindowDivsionLines(struct GameTracker *gGT)
 
 	numPlyrCurrGame = gGT->numPlyrCurrGame;
 
-#if defined(__vita__)
-	if ((numPlyrCurrGame == 2) && NativeAdhoc_IsConnected())
+#if defined(CTR_NATIVE)
+	if ((numPlyrCurrGame >= 2) && NativeAdhoc_IsConnected())
 	{
 		return;
 	}
@@ -1837,7 +1918,7 @@ void RenderSubmit(struct GameTracker *gGT)
 	gGT->bool_DrawOTag_InProgress = 1;
 
 	void *ot;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		ot = &NativeAdhoc_GetRenderPushBuffer()->ptrOT[0x3ff];

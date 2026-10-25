@@ -160,7 +160,7 @@ void PlayLevel_UpdateLapStats(void)
 				currDriver->lapIndex++;
 
 				int shouldPlayLapSound = currDriver == farthestHuman;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 				if (NativeAdhoc_IsConnected())
 				{
 					int localPlayer = NativeAdhoc_GetLocalPlayerIndex();
@@ -428,7 +428,7 @@ void PlayLevel_UpdateLapStats(void)
 		{
 			struct Driver *voiceDriver = gGT->driversInRaceOrder[currRank - 1];
 			// Make driver talk
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (NativeAdhoc_ShouldPresentDriver(voiceDriver->driverID))
 #endif
 			{

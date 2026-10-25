@@ -3027,7 +3027,7 @@ u32 BOTS_ChangeState(struct Driver *driverVictim, int damageType, struct Driver 
 
 		if ((driverAttacker->actionsFlagSet & ACTION_BOT) == 0)
 		{
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (NativeAdhoc_ShouldPresentDriver(driverVictim->driverID))
 #endif
 			{

@@ -4,6 +4,7 @@
 #include "OxideMenuModel.h"
 #include <platform/native_custom_racer.h>
 #include <platform/native_engine.h>
+#include <platform/native_adhoc.h>
 #endif
 
 enum
@@ -2043,6 +2044,19 @@ void MM_Characters_MenuProc(struct RectMenu *menu)
 			}
 
 			// if going to track selection
+#if defined(CTR_NATIVE)
+			if (NativeAdhoc_IsActive() && (NativeAdhoc_GetRole() == NATIVE_ADHOC_ROLE_CLIENT))
+			{
+				NativeAdhoc_ClientArmRaceProposal();
+				if (NativeAdhoc_IsRaceConfigReady())
+				{
+					gGT->currLEV = NativeAdhoc_GetConfiguredLEV();
+					gGT->numLaps = NativeAdhoc_GetConfiguredLaps();
+					sdata->ptrDesiredMenu = &data.menuQueueLoadTrack;
+					return;
+				}
+			}
+#endif
 			sdata->ptrDesiredMenu = &D230.menuTrackSelect;
 			MM_TrackSelect_Init();
 			return;
@@ -2350,6 +2364,12 @@ dontDrawSelectCharacter:
 						// exit toward cup or track selection
 						D230.characterSelectExitsForward = 1;
 						D230.characterSelectMenuState = EXITING_MENU;
+#if defined(CTR_NATIVE)
+						if (NativeAdhoc_IsActive() && (NativeAdhoc_GetRole() == NATIVE_ADHOC_ROLE_CLIENT))
+						{
+							NativeAdhoc_ClientArmRaceProposal();
+						}
+#endif
 					}
 				}
 

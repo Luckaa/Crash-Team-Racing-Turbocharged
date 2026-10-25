@@ -131,8 +131,8 @@ void UI_DrawRankedDrivers(void)
 	struct GameTracker *gGT = sdata->gGT;
 	int numPlyr = gGT->numPlyrCurrGame;
 	int adhocVsSingleView = 0;
-#if defined(__vita__)
-	if (NativeAdhoc_IsSingleViewRenderActive() && (numPlyr == 2))
+#if defined(CTR_NATIVE)
+	if (NativeAdhoc_IsSingleViewRenderActive() && (numPlyr >= 2 && numPlyr <= 4))
 	{
 		adhocVsSingleView = NativeAdhoc_GetGameMode() == NATIVE_ADHOC_GAME_MODE_VS;
 		numPlyr = 1;
@@ -179,10 +179,13 @@ void UI_DrawRankedDrivers(void)
 		// Default for Arcade: Show 4 racers
 		int visibleRankCount = UI_RANK_VISIBLE_ARCADE_COUNT;
 
-		if (IS_BOSS_RACE(gGT->gameMode1) || adhocVsSingleView)
+		if (IS_BOSS_RACE(gGT->gameMode1))
 		{
-			// Boss races and fullscreen AdHoc VS only have two ranked racers.
 			visibleRankCount = UI_RANK_VISIBLE_BOSS_COUNT;
+		}
+		else if (adhocVsSingleView)
+		{
+			visibleRankCount = gGT->numPlyrCurrGame;
 		}
 
 		// height to draw rank (this bitshifts later)

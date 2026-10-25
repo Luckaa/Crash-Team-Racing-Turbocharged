@@ -2325,7 +2325,7 @@ static struct RenderBucketEntry *RenderBucket_QueueDraw(struct Instance *inst, s
 	}
 #endif
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive() &&
 	    (playerIndex == NativeAdhoc_GetLocalPlayerIndex()) &&
 	    (pb == &sdata->gGT->pushBuffer[playerIndex]))
@@ -2401,7 +2401,7 @@ static struct RenderBucketEntry *RenderBucket_QueueDraw(struct Instance *inst, s
 
 	{
 		int animationPlayerIndex = playerIndex;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (NativeAdhoc_IsSingleViewRenderActive())
 		{
 			// Retail advances shared Instance animation only during the P1 draw.
@@ -2478,7 +2478,7 @@ void *RenderBucket_QueueLevInstances(struct CameraDC *cDC, struct OTMem *otState
 		queueState.otEndMinusOne = otState->end - 1;
 	}
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		int player = NativeAdhoc_GetLocalPlayerIndex();
@@ -2569,7 +2569,7 @@ void *RenderBucket_QueueNonLevInstances(struct Item *item, struct OTMem *otState
 		queueState.otEndMinusOne = otState->end - 1;
 	}
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		int player = NativeAdhoc_GetLocalPlayerIndex();
@@ -2582,7 +2582,8 @@ void *RenderBucket_QueueNonLevInstances(struct Item *item, struct OTMem *otState
 			    ((inst->model->id == STATIC_FRUITDISP) || (inst->model->id == STATIC_BIG1)))
 			{
 				int owner = -1;
-				for (int i = 0; i < 2; i++)
+				int maxDrivers = (sdata->gGT != NULL && sdata->gGT->numPlyrCurrGame > 0) ? sdata->gGT->numPlyrCurrGame : 4;
+				for (int i = 0; i < maxDrivers; i++)
 				{
 					struct Driver *driver = sdata->gGT->drivers[i];
 					if ((driver != NULL) &&
@@ -5904,7 +5905,7 @@ static int RenderBucket_PrepareDrawContext(struct RenderBucketDrawContext *ctx, 
 
 	idpp = RenderBucket_InstancePlayerIdpp(instPlayerBase);
 	pb = idpp->pushBuffer;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		int playerIndex = (int)(((u8 *)instPlayerBase - (u8 *)inst) / sizeof(struct InstDrawPerPlayer));

@@ -686,7 +686,7 @@ static int DrawTiresSolid_StagePlayer(struct DrawTiresScratch *scratch, struct D
 	struct PushBuffer *pb = idpp->pushBuffer;
 	int flags = idpp->instFlags;
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive() &&
 	    (playerIndex == NativeAdhoc_GetLocalPlayerIndex()) &&
 	    (pb == &sdata->gGT->pushBuffer[playerIndex]))
@@ -758,7 +758,7 @@ void DrawTires_Solid(struct Thread *thread, struct PrimMem *primMem, u8 numPlyr)
 	int playerStart = 0;
 	int playerEnd = (int)(u8)numPlyr;
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		playerStart = NativeAdhoc_GetLocalPlayerIndex();
@@ -1281,7 +1281,7 @@ static int DrawTiresReflection_StagePlayer(struct DrawTiresScratch *scratch, str
 	struct PushBuffer *pb = idpp->pushBuffer;
 	int flags = idpp->instFlags;
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive() &&
 	    (playerIndex == NativeAdhoc_GetLocalPlayerIndex()) &&
 	    (pb == &sdata->gGT->pushBuffer[playerIndex]))
@@ -1348,7 +1348,7 @@ void DrawTires_Reflection(struct Thread *thread, struct PrimMem *primMem, u8 num
 	int playerStart = 0;
 	int playerEnd = (int)(u8)numPlyr;
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive())
 	{
 		playerStart = NativeAdhoc_GetLocalPlayerIndex();

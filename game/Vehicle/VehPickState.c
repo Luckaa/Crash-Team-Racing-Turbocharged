@@ -103,7 +103,7 @@ int VehPickState_NewState(struct Driver *victimDriver, int damageType, struct Dr
 	    (victimDriver->invincibleTimer != 0))
 	{
 	VictimLaugh:
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (NativeAdhoc_ShouldPresentInteractionVoice(
 			victimDriver->driverID,
 			attackDriver != NULL ? attackDriver->driverID : -1))
@@ -179,7 +179,7 @@ int VehPickState_NewState(struct Driver *victimDriver, int damageType, struct Dr
 		if (victimState != KS_SPINNING)
 		{
 			// squish sound
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (NativeAdhoc_ShouldPresentDriver(victimDriver->driverID))
 #endif
 			{
@@ -238,7 +238,7 @@ int VehPickState_NewState(struct Driver *victimDriver, int damageType, struct Dr
 
 	if (voice != 0)
 	{
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		if (NativeAdhoc_ShouldPresentInteractionVoice(
 			victimDriver->driverID,
 			attackDriver != NULL ? attackDriver->driverID : -1))

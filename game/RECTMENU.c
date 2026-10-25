@@ -5,6 +5,7 @@
 #include <platform/native_engine.h>
 #include <platform/native_aspect.h>
 #include <platform/native_projection.h>
+#include <platform/native_adhoc.h>
 
 
 // Translations for the native menu rows. Language order matches the retail menus: EN, FR, DE, IT, ES, NL.
@@ -574,12 +575,12 @@ static const char *changeBoss[6] =
 };
 static const char *adhoc[6] =
 {
-	"ADHOC",
-	"ADHOC",
-	"ADHOC",
-	"ADHOC",
-	"ADHOC",
-	"ADHOC",
+	"MULTIPLAYER",
+	"MULTIJOUEUR",
+	"MEHRSPIELER",
+	"MULTIGIOCATORE",
+	"MULTIPLAYER",
+	"MULTIPLAYER",
 };
 static const char *exitGame[6] =
 {
@@ -2006,6 +2007,17 @@ void RECTMENU_CollectInput()
 		sdata->AnyPlayerTap |= sdata->buttonTapPerPlayer[i];
 		sdata->AnyPlayerHold |= sdata->buttonHeldPerPlayer[i];
 	}
+#if defined(CTR_NATIVE)
+	if (NativeAdhoc_IsActive())
+	{
+		int localIdx = NativeAdhoc_GetLocalPlayerIndex();
+		if ((localIdx >= 0) && (localIdx < numListen))
+		{
+			sdata->AnyPlayerTap = sdata->buttonTapPerPlayer[localIdx];
+			sdata->AnyPlayerHold = sdata->buttonHeldPerPlayer[localIdx];
+		}
+	}
+#endif
 }
 
 
@@ -2041,8 +2053,28 @@ int RECTMENU_ProcessInput(struct RectMenu *m)
 	// if only P1 can use menu
 	if ((m->state & ALL_PLAYERS_USE_MENU) == 0)
 	{
+#if defined(CTR_NATIVE)
+		if (NativeAdhoc_IsActive())
+		{
+			int localIdx = NativeAdhoc_GetLocalPlayerIndex();
+			if ((localIdx >= 0) && (localIdx < 4))
+			{
+				button = sdata->buttonTapPerPlayer[localIdx];
+			}
+			else
+			{
+				button = sdata->buttonTapPerPlayer[0];
+			}
+		}
+		else
+		{
+			// get button from P1
+			button = sdata->buttonTapPerPlayer[0];
+		}
+#else
 		// get button from P1
 		button = sdata->buttonTapPerPlayer[0];
+#endif
 	}
 
 	if (

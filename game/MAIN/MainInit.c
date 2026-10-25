@@ -1,4 +1,7 @@
 #include <common.h>
+#if defined(CTR_NATIVE)
+#include "platform/native_adhoc.h"
+#endif
 
 
 static void MainInit_InitVisMemBspListNodes(struct VisMem *visMem, struct mesh_info *mesh)
@@ -169,8 +172,8 @@ void MainInit_PrimMem(struct GameTracker *gGT)
 {
 	int size = MainInit_GetPrimMemSize(gGT);
 
-#if defined(__vita__)
-	if (NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame == 2) && MainInit_HasPlayableOxide(gGT))
+#if defined(CTR_NATIVE)
+	if (NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame >= 2) && MainInit_HasPlayableOxide(gGT))
 	{
 		size -= MAININIT_ADHOC_OXIDE_PRIMMEM_RECLAIM;
 	}
@@ -307,8 +310,8 @@ void MainInit_JitPoolsNew(struct GameTracker *gGT)
 	JitPool_Init(&gGT->JitPools.instance, renderBucketSize >> 5, sizeof(struct Instance) + (sizeof(struct InstDrawPerPlayer) * gGT->numPlyrCurrGame),
 	             rdata.s_InstancePool);
 	int useOxideExternalPools = MainInit_HasPlayableOxide(gGT);
-#if defined(__vita__)
-	if (NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame == 2))
+#if defined(CTR_NATIVE)
+	if (NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame >= 2))
 	{
 		useOxideExternalPools = 0;
 	}
@@ -373,7 +376,7 @@ void MainInit_JitPoolsNew(struct GameTracker *gGT)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003b6d0-0x8003b934; CTR_NATIVE gates TT ghost model publication.
 void MainInit_Drivers(struct GameTracker *gGT)
 {
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	NativeAdhoc_EnforcePreparedRaceConfig(gGT);
 #endif
 	u8 numPlyrCurrGame = gGT->numPlyrCurrGame;
@@ -425,25 +428,37 @@ void MainInit_Drivers(struct GameTracker *gGT)
 		RB_MinePool_Init();
 	}
 
+#if defined(CTR_NATIVE)
+	Platform_Log("[CTR Init] MainInit_Drivers: spawning %d human players...\n", numPlyrCurrGame);
+#endif
 	// Spawn all players,
 	// This MUST be in reverse order,
 	// because of threadBucket linked list order
 	for (int i = numPlyrCurrGame - 1; i >= 0; i--)
 	{
+#if defined(CTR_NATIVE)
+		Platform_Log("[CTR Init] Spawning player index %d (charID=%d)...\n", i, data.characterIDs[i]);
+#endif
 		gGT->drivers[i] = VehBirth_Player(i);
+#if defined(CTR_NATIVE)
+		Platform_Log("[CTR Init] Player index %d spawned: driver=%p, inst=%p\n",
+		             i, gGT->drivers[i], gGT->drivers[i] ? gGT->drivers[i]->instSelf : NULL);
+#endif
 	}
 
 	// spawn all AIs
-	if ((
+	if (
+#if defined(CTR_NATIVE)
+	        !NativeAdhoc_IsActive() &&
+#endif
 	        // exclude cutscene, relic, Time Trial,
 	        // Adventure Hub, Main Menu, Battle
 	        ((gameMode & 0x2c122020) == 0) &&
 
 	        // numPlyrCurrGame requires AIs
-	        (numPlyrCurrGame < 3)) &&
-	    (
+	        (numPlyrCurrGame < 3) &&
 	        // in Arcade or Adventure, or native Boss Fight
-	        ((gameMode & (ARCADE_MODE | ADVENTURE_MODE)) != 0
+	        (((gameMode & (ARCADE_MODE | ADVENTURE_MODE)) != 0
 	         || (gNativeBossFightMode != 0)
 	        )))
 	{

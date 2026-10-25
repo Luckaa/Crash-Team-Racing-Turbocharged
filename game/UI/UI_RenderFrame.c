@@ -2,7 +2,7 @@
 
 #if defined(CTR_NATIVE)
 #include "platform/native_adhoc.h"
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 static int s_nativeAdhocRouletteSoundActive;
 #endif
 
@@ -90,8 +90,8 @@ void UI_RenderFrame_Racing()
 	int numPlyr = gGT->numPlyrCurrGame;
 	int gameMode1 = gGT->gameMode1;
 	int onePlayerPresentation = numPlyr == 1;
-#if defined(__vita__)
-	int adhocSingleView = NativeAdhoc_IsSingleViewRenderActive() && (numPlyr == 2);
+#if defined(CTR_NATIVE)
+	int adhocSingleView = NativeAdhoc_IsSingleViewRenderActive() && (numPlyr >= 2 && numPlyr <= 4);
 	int adhocLocalPlayer = adhocSingleView ? NativeAdhoc_GetLocalPlayerIndex() : 0;
 	u32 *adhocVisibleUiOT = gGT->pushBuffer_UI.ptrOT;
 	u32 *adhocDiscardOT = adhocSingleView ? gGT->pushBuffer[0].ptrOT : NULL;
@@ -122,7 +122,7 @@ void UI_RenderFrame_Racing()
 
 	UI_WeaponBG_AnimateShine();
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 	if (adhocSingleView)
 	{
 		struct Driver *audioDriver = gGT->drivers[adhocLocalPlayer];
@@ -165,7 +165,7 @@ void UI_RenderFrame_Racing()
 		if ((gGT->hudFlags & HUD_FLAG_RENDER_LESS) == 0)
 		{
 			// If you press Triangle
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if ((sdata->gGamepads->gamepad[adhocSingleView ? adhocLocalPlayer : 0].buttonsTapped & 0x40000) != 0)
 #else
 			if ((sdata->gGamepads->gamepad[0].buttonsTapped & 0x40000) != 0)
@@ -221,7 +221,7 @@ void UI_RenderFrame_Racing()
 		{
 			// pointer to player structure
 			playerStruct = (struct Driver *)playerThread->object;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			u32 *adhocPlayerOriginalOT = NULL;
 			if (adhocSingleView)
 			{
@@ -262,7 +262,7 @@ void UI_RenderFrame_Racing()
 				if ((gameMode1 & PAUSE_ALL) == 0)
 				{
 					pb = &gGT->pushBuffer[playerStruct->driverID];
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 					if (adhocSingleView && (playerStruct->driverID == adhocLocalPlayer))
 					{
 						pb = NativeAdhoc_GetRenderPushBuffer();
@@ -350,7 +350,7 @@ void UI_RenderFrame_Racing()
 
 						// OtherFX_Play to get wumpa fruit
 						// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005347c-0x80053484 for wumpa pickup SFX.
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 						if (!adhocSingleView || (playerStruct->driverID == adhocLocalPlayer))
 #endif
 						{
@@ -370,7 +370,7 @@ void UI_RenderFrame_Racing()
 					{
 						int pickupStartX = (int)playerStruct->PickupWumpaHUD.startX;
 						int pickupStartY = (int)playerStruct->PickupWumpaHUD.startY;
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 						if (adhocSingleView && (playerStruct->driverID == adhocLocalPlayer))
 						{
 							struct PushBuffer *sourcePB = &gGT->pushBuffer[adhocLocalPlayer];
@@ -675,7 +675,7 @@ void UI_RenderFrame_Racing()
 				}
 			}
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (adhocSingleView)
 			{
 				if ((playerStruct->driverID != adhocLocalPlayer) && (adhocPlayerOriginalOT != NULL))
@@ -690,7 +690,7 @@ void UI_RenderFrame_Racing()
 			// thread = thread->sibling
 			playerThread = playerThread->siblingThread;
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (!adhocSingleView)
 #endif
 			{
@@ -710,7 +710,7 @@ void UI_RenderFrame_Racing()
 
 	if (onePlayerPresentation)
 	{
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		playerStruct = gGT->drivers[adhocSingleView ? adhocLocalPlayer : 0];
 #else
 		playerStruct = gGT->drivers[0];
@@ -962,7 +962,7 @@ void UI_RenderFrame_Racing()
 		{
 			playerStruct = gGT->drivers[i];
 			pb = &gGT->pushBuffer[playerStruct->driverID];
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			u32 *adhocStatusOriginalOT = NULL;
 			if (adhocSingleView)
 			{
@@ -1033,7 +1033,7 @@ void UI_RenderFrame_Racing()
 				bVar3 = true;
 			}
 
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (adhocSingleView)
 			{
 				if ((i != adhocLocalPlayer) && (adhocStatusOriginalOT != NULL))
@@ -1071,7 +1071,7 @@ void UI_RenderFrame_Racing()
 	if (onePlayerPresentation)
 	{
 		struct UiElement2D *hud1P = data.hudStructPtr[0];
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 		struct Driver *reservesDriver = gGT->drivers[adhocSingleView ? adhocLocalPlayer : 0];
 #else
 		struct Driver *reservesDriver = gGT->drivers[0];
@@ -1275,8 +1275,8 @@ void UI_RenderFrame_Wumpa3D_2P3P4P(struct GameTracker *gGT)
 	RECT *viewport;
 	struct PushBuffer *wumpaPushBuffer;
 	u32 packedRect;
-#if defined(__vita__)
-	int adhocSingleView = NativeAdhoc_IsSingleViewRenderActive() && (gGT->numPlyrCurrGame == 2);
+#if defined(CTR_NATIVE)
+	int adhocSingleView = NativeAdhoc_IsSingleViewRenderActive() && (gGT->numPlyrCurrGame >= 2);
 	int adhocLocalPlayer = adhocSingleView ? NativeAdhoc_GetLocalPlayerIndex() : 0;
 #else
 	int adhocSingleView = 0;
@@ -1331,7 +1331,7 @@ void UI_RenderFrame_Wumpa3D_2P3P4P(struct GameTracker *gGT)
 		if (shouldCycleTexture)
 		{
 			u32 *cycleOT = (u32 *)&gGT->pushBuffer[0].ptrOT[0x3ff];
-#if defined(__vita__)
+#if defined(CTR_NATIVE)
 			if (adhocSingleView)
 			{
 				cycleOT = (u32 *)&NativeAdhoc_GetRenderPushBuffer()->ptrOT[0x3ff];
