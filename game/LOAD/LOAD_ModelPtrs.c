@@ -23,10 +23,13 @@ void LOAD_GlobalModelPtrs_MPK()
 	}
 
 #if defined(CTR_NATIVE)
-	struct Model *d4 = NativeAdhoc_GetDriver4Model();
-	if (d4 != NULL && d4->id != -1)
+	for (int i = 3; i < 8; i++)
 	{
-		gGT->modelPtr[d4->id] = d4;
+		struct Model *extra = NativeAdhoc_GetExtraDriverModel(i);
+		if (extra != NULL && extra->id != -1)
+		{
+			gGT->modelPtr[extra->id] = extra;
+		}
 	}
 #endif
 

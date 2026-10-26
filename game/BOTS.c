@@ -3236,12 +3236,21 @@ void BOTS_GotoStartingLine(struct Driver *d)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80017164-0x80017318.
 struct Driver *BOTS_Driver_Init(int driverID)
 {
+	if (driverID < 0 || driverID >= 8)
+	{
+		return NULL;
+	}
+
 	s8 initialNavPathIndex = sdata->driver_pathIndexIDs[driverID];
+	if (initialNavPathIndex < 0 || initialNavPathIndex > 2)
+	{
+		initialNavPathIndex = 0;
+	}
 	s8 navPathIndex = initialNavPathIndex;
 	while (1)
 	{
-		s16 navPathPointsCount = sdata->NavPath_ptrHeader[navPathIndex]->numPoints;
-		if (1 < navPathPointsCount)
+		if (sdata->NavPath_ptrHeader[navPathIndex] != NULL &&
+		    1 < sdata->NavPath_ptrHeader[navPathIndex]->numPoints)
 		{
 			break; // success
 		}
@@ -3299,12 +3308,21 @@ void BOTS_Driver_Convert(struct Driver *d)
 
 	UI_RaceEnd_GetDriverClock(d);
 
+	if (d->driverID < 0 || d->driverID >= 8)
+	{
+		return;
+	}
+
 	s8 initialNavPathIndex = sdata->driver_pathIndexIDs[d->driverID];
+	if (initialNavPathIndex < 0 || initialNavPathIndex > 2)
+	{
+		initialNavPathIndex = 0;
+	}
 	s8 navPathIndex = initialNavPathIndex;
 	while (1)
 	{
-		s16 navPathPointsCount = sdata->NavPath_ptrHeader[navPathIndex]->numPoints;
-		if (1 < navPathPointsCount)
+		if (sdata->NavPath_ptrHeader[navPathIndex] != NULL &&
+		    1 < sdata->NavPath_ptrHeader[navPathIndex]->numPoints)
 		{
 			break; // success
 		}

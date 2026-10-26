@@ -65,7 +65,16 @@ struct Instance *UI_INSTANCE_BirthWithThread(int modelID, int tickFunc, int hudS
 		return NULL;
 	}
 
-	hudStruct = data.hudStructPtr[gGT->numPlyrCurrGame - 1];
+#if defined(CTR_NATIVE)
+	if (NativeAdhoc_IsSingleViewRenderActive() || NativeAdhoc_IsConnected() || NativeAdhoc_IsActive())
+	{
+		hudStruct = data.hudStructPtr[0];
+	}
+	else
+#endif
+	{
+		hudStruct = data.hudStructPtr[gGT->numPlyrCurrGame - 1];
+	}
 	driverThread = gGT->threadBuckets[PLAYER].thread;
 
 	while (driverThread != 0)
@@ -393,7 +402,7 @@ void UI_INSTANCE_InitAll(void)
 	if (gGT->numPlyrCurrGame >= 2)
 	{
 #if defined(CTR_NATIVE)
-		if ((gameMode1 & MAIN_MENU) != 0)
+		if (((gameMode1 & MAIN_MENU) != 0) && !NativeAdhoc_IsConnected())
 #endif
 		{
 			sdata->ptrPushBufferUI = (int)&sdata->pushBuffer_DecalMP;
@@ -409,10 +418,15 @@ void UI_INSTANCE_InitAll(void)
 	sdata->ptrFruitDisp = (int)UI_INSTANCE_BirthWithThread(STATIC_FRUITDISP, (int)UI_ThTick_CountPickup, UI_HUD_SLOT_FRUIT_MODEL, 1, sdata->ptrPushBufferUI,
 	                                                       (int)rdata.s_fruitdisp);
 
+#if defined(CTR_NATIVE)
+	if (((gGT->numPlyrCurrGame < 3) || NativeAdhoc_IsSingleViewRenderActive() || NativeAdhoc_IsConnected() || NativeAdhoc_IsActive()) &&
+	    ((gameMode1 & BATTLE_MODE) == 0))
+#else
 	if ((gGT->numPlyrCurrGame < 3) &&
 
 	    // If you're not in Battle Mode
 	    ((gameMode1 & BATTLE_MODE) == 0))
+#endif
 	{
 		UI_INSTANCE_BirthWithThread(STATIC_BIG1, (int)UI_ThTick_big1, UI_HUD_SLOT_BIG1, 0, 0, (int)sdata->s_big1);
 	}

@@ -11,6 +11,7 @@
 #include "platform/native_minimap.h"
 #if defined(CTR_NATIVE)
 #include "platform/native_adhoc.h"
+#include "platform/native_mp_test.h"
 #endif
 #endif
 
@@ -1155,7 +1156,10 @@ static int MM_NativeAdhocPollWait(struct GameTracker *gGT)
 		s_nativeAdhocGameMode = (s16)adhocGameMode;
 		gGT->gameMode1 &= ~(BATTLE_MODE | ADVENTURE_MODE | TIME_TRIAL | RELIC_RACE | ADVENTURE_ARENA | ARCADE_MODE | ADVENTURE_CUP);
 		gGT->gameMode2 &= ~(CUP_ANY_KIND);
-		// Force pure multiplayer (no AI bots, real players only)
+		if (adhocGameMode == NATIVE_ADHOC_GAME_MODE_ARCADE)
+		{
+			gGT->gameMode1 |= ARCADE_MODE;
+		}
 		gGT->numPlyrNextGame = (u8)NativeAdhoc_GetPlayerCount();
 		gGT->numLaps = MM_DEFAULT_LAP_COUNT;
 		MM_NativeAdhocResetHierarchy();
@@ -2318,7 +2322,8 @@ void MM_MenuProc_Main(struct RectMenu *mainMenu)
 		return;
 	}
 
-	if (((mainMenu->state & DRAW_NEXT_MENU_IN_HIERARCHY) == 0) &&
+	if (!NativeMpTest_IsActive() &&
+	    ((mainMenu->state & DRAW_NEXT_MENU_IN_HIERARCHY) == 0) &&
 	    ((s_nativeAdhocMenuStage != MM_NATIVE_ADHOC_STAGE_GAME_FLOW) || !NativeAdhoc_IsActive()))
 	{
 		if (NativeAdhoc_IsActive())

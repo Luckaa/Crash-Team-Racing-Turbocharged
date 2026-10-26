@@ -140,7 +140,9 @@ struct NativeAdhocMenuInputPacket
 {
 	struct NativeAdhocPacketHeader header;
 	u8 playerIndex;
-	u8 reserved[3];
+	u8 trackRow;
+	u8 lapBoxOpen;
+	u8 lapRow;
 	struct PlatformInputPadSnapshot pad;
 };
 
@@ -558,6 +560,8 @@ static void NativeAdhoc_InitWinsock(void)
 static char s_nativeAdhocCustomHostIp[128] = "127.0.0.1";
 static u16 s_nativeAdhocCustomHostPort = NATIVE_ADHOC_PORT;
 
+static int s_nativeAdhocCustomHostPortExplicit = 0;
+
 void NativeAdhoc_SetCustomHostIp(const char *ip)
 {
 	if ((ip != NULL) && (ip[0] != '\0'))
@@ -574,13 +578,10 @@ void NativeAdhoc_SetCustomHostIp(const char *ip)
 			if (portVal > 0 && portVal <= 65535)
 			{
 				s_nativeAdhocCustomHostPort = (u16)portVal;
-			}
-			else
-			{
-				s_nativeAdhocCustomHostPort = NATIVE_ADHOC_PORT;
+				s_nativeAdhocCustomHostPortExplicit = 1;
 			}
 		}
-		else
+		else if (!s_nativeAdhocCustomHostPortExplicit)
 		{
 			s_nativeAdhocCustomHostPort = NATIVE_ADHOC_PORT;
 		}
@@ -600,9 +601,22 @@ u16 NativeAdhoc_GetCustomHostPort(void)
 	return s_nativeAdhocCustomHostPort;
 }
 
+void NativeAdhoc_SetCustomHostPort(u16 port)
+{
+	s_nativeAdhocCustomHostPort = port;
+	s_nativeAdhocCustomHostPortExplicit = 1;
+}
+
 static void NativeAdhoc_LoadCustomHostIp(void)
 {
 #ifndef __vita__
+	if (s_nativeAdhocCustomHostPortExplicit)
+	{
+		Platform_Log("[CTR Multiplayer] Custom host IP configurado via args: %s (Porta %u)\n",
+		             s_nativeAdhocCustomHostIp, (unsigned int)s_nativeAdhocCustomHostPort);
+		return;
+	}
+
 	FILE *f = fopen("multiplayer_ip.txt", "r");
 	if (f != NULL)
 	{
@@ -737,7 +751,12 @@ static void NativeAdhoc_ResetLockstep(u32 frame)
 	}
 }
 
-static void NativeAdhoc_ResetRaceConfigState(void)
+static u8 s_hostTrackRow = 0;
+static u8 s_hostLapBoxOpen = 0;
+static u8 s_hostLapRow = 0;
+static u8 s_hostMenuStateValid = 0;
+
+void NativeAdhoc_ResetRaceConfigState(void)
 {
 	s_nativeAdhoc.raceSyncPending = 0;
 	s_nativeAdhoc.raceLoadPrepared = 0;
@@ -745,6 +764,10 @@ static void NativeAdhoc_ResetRaceConfigState(void)
 	s_nativeAdhoc.raceConfigReceived = 0;
 	s_nativeAdhoc.raceConfigAcked = 0;
 	s_nativeAdhoc.lastRaceConfigTime = 0;
+	s_hostMenuStateValid = 0;
+	s_hostTrackRow = 0;
+	s_hostLapBoxOpen = 0;
+	s_hostLapRow = 0;
 	for (int i = 0; i < NATIVE_ADHOC_MAX_PEERS; i++)
 	{
 		s_nativeAdhoc.peers[i].raceProposalValid = 0;
@@ -769,7 +792,10 @@ static void NativeAdhoc_ApplyGameMode(struct GameTracker *gGT, int gameMode)
 
 	gGT->gameMode1 &= ~(BATTLE_MODE | ADVENTURE_MODE | TIME_TRIAL | ADVENTURE_ARENA | ARCADE_MODE | ADVENTURE_CUP);
 	gGT->gameMode2 &= ~(CUP_ANY_KIND);
-	// In multiplayer, pure human VS mode is enforced (no AI bots)
+	if (gameMode == NATIVE_ADHOC_GAME_MODE_ARCADE)
+	{
+		gGT->gameMode1 |= ARCADE_MODE;
+	}
 }
 
 static void NativeAdhoc_SendRaceProposal(void)
@@ -969,14 +995,32 @@ int NativeAdhoc_PrepareRaceLoad(struct GameTracker *gGT)
 {
 	u32 seed;
 
-	if (!s_nativeAdhoc.peerKnown || (gGT == NULL) || (gGT->numPlyrNextGame < 2) || (gGT->numPlyrNextGame > 4))
+	if (!NativeAdhoc_IsActive())
 	{
+		Platform_Log("[CTR Adhoc] PrepareRaceLoad: NativeAdhoc_IsActive is 0! (role=%d)\n", s_nativeAdhoc.role);
 		return 1;
+	}
+
+	if (!s_nativeAdhoc.peerKnown || (gGT == NULL))
+	{
+		return 0;
 	}
 
 	if (s_nativeAdhoc.raceLoadPrepared)
 	{
+		Platform_Log("[CTR Adhoc] PrepareRaceLoad: already prepared!\n");
 		return 1;
+	}
+
+	int numPlayers = NativeAdhoc_GetPlayerCount();
+	if (numPlayers >= 2 && numPlayers <= 4)
+	{
+		gGT->numPlyrNextGame = (u8)numPlayers;
+	}
+	else
+	{
+		Platform_Log("[CTR Adhoc] PrepareRaceLoad: invalid numPlayers %d\n", numPlayers);
+		return 0;
 	}
 
 	if (!s_nativeAdhoc.raceSyncPending)
@@ -989,7 +1033,7 @@ int NativeAdhoc_PrepareRaceLoad(struct GameTracker *gGT)
 		memset(&s_nativeAdhoc.raceConfig, 0, sizeof(s_nativeAdhoc.raceConfig));
 
 		Platform_Log("[CTR Adhoc] NativeAdhoc_PrepareRaceLoad: starting race sync (role=%d, myIdx=%d, numPlyr=%d)\n",
-		             s_nativeAdhoc.role, NativeAdhoc_GetLocalPlayerIndex(), gGT->numPlyrNextGame);
+		             s_nativeAdhoc.role, NativeAdhoc_GetLocalPlayerIndex(), numPlayers);
 
 		if (s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_CLIENT)
 		{
@@ -1200,7 +1244,9 @@ static void NativeAdhoc_SendHello(void)
 
 		NativeAdhoc_SendRaw(&targetAddr, &packet, sizeof(packet));
 	}
-	else
+
+	// Sempre envia tambem em broadcast UDP para a rede local (Wi-Fi / LAN),
+	// permitindo conexao automatica entre PCs na mesma casa sem precisar configurar IP!
 	{
 		NativeNetAddr bcastAddr;
 		memset(&bcastAddr, 0, sizeof(bcastAddr));
@@ -1450,7 +1496,7 @@ static int NativeAdhoc_OpenSocket(void)
 	bindAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	if (s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST)
 	{
-		bindAddr.sin_port = htons(NATIVE_ADHOC_PORT);
+		bindAddr.sin_port = htons(s_nativeAdhocCustomHostPort != 0 ? s_nativeAdhocCustomHostPort : NATIVE_ADHOC_PORT);
 	}
 	else
 	{
@@ -1482,7 +1528,8 @@ static int NativeAdhoc_OpenSocket(void)
 			s_nativeAdhoc.sessionId = 1;
 		}
 		Platform_Log("[CTR Multiplayer] ========================================\n");
-		Platform_Log("[CTR Multiplayer] SALA ABERTA! Servidor aguardando jogador na porta UDP %u\n", NATIVE_ADHOC_PORT);
+		Platform_Log("[CTR Multiplayer] SALA ABERTA! Servidor aguardando jogador na porta UDP %u\n",
+		             (unsigned int)(s_nativeAdhocCustomHostPort != 0 ? s_nativeAdhocCustomHostPort : NATIVE_ADHOC_PORT));
 		Platform_Log("[CTR Multiplayer] ========================================\n");
 	}
 	else
@@ -1668,6 +1715,34 @@ static int NativeAdhoc_FindHash(u32 frame, u32 *hash)
 	return 0;
 }
 
+void NativeAdhoc_SetHostMenuState(u8 trackRow, u8 lapBoxOpen, u8 selectedLapRow)
+{
+	s_hostTrackRow = trackRow;
+	s_hostLapBoxOpen = lapBoxOpen;
+	s_hostLapRow = selectedLapRow;
+	s_hostMenuStateValid = 1;
+}
+
+int NativeAdhoc_GetHostTrackRow(void)
+{
+	return (int)s_hostTrackRow;
+}
+
+int NativeAdhoc_GetHostLapBoxOpen(void)
+{
+	return (int)s_hostLapBoxOpen;
+}
+
+int NativeAdhoc_GetHostLapRow(void)
+{
+	return (int)s_hostLapRow;
+}
+
+int NativeAdhoc_IsHostMenuStateValid(void)
+{
+	return (int)s_hostMenuStateValid;
+}
+
 static void NativeAdhoc_SendMenuInput(const struct PlatformInputPadSnapshot *pad)
 {
 	struct NativeAdhocMenuInputPacket packet;
@@ -1679,6 +1754,12 @@ static void NativeAdhoc_SendMenuInput(const struct PlatformInputPadSnapshot *pad
 	memset(&packet, 0, sizeof(packet));
 	NativeAdhoc_InitHeader(&packet.header, NATIVE_ADHOC_PACKET_MENU_INPUT);
 	packet.playerIndex = (u8)NativeAdhoc_GetLocalPlayerIndex();
+	if (s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST)
+	{
+		packet.trackRow = s_hostTrackRow;
+		packet.lapBoxOpen = s_hostLapBoxOpen;
+		packet.lapRow = s_hostLapRow;
+	}
 	packet.pad = *pad;
 	packet.pad.connected = 1;
 	NativeAdhoc_SendToPeers(&packet, sizeof(packet));
@@ -2421,7 +2502,7 @@ static void NativeAdhoc_ReceivePackets(void)
 			if (s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST)
 			{
 				struct NativeAdhocHelloPacket *packet = (struct NativeAdhocHelloPacket *)buffer;
-				if (NativeAdhoc_IsGameModeValid(packet->gameMode) && (packet->gameMode == s_nativeAdhoc.gameMode))
+				if (NativeAdhoc_IsGameModeValid(packet->gameMode) || packet->gameMode == 0)
 				{
 					int peerIdx = NativeAdhoc_FindOrAddPeer(&src, packet->clientId);
 					if (peerIdx >= 0)
@@ -2441,12 +2522,13 @@ static void NativeAdhoc_ReceivePackets(void)
 			if (s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_CLIENT)
 			{
 				struct NativeAdhocWelcomePacket *packet = (struct NativeAdhocWelcomePacket *)buffer;
-				if ((packet->build != BUILD) || !NativeAdhoc_IsGameModeValid(packet->gameMode) || (packet->gameMode != s_nativeAdhoc.gameMode))
+				if ((packet->build != BUILD) || !NativeAdhoc_IsGameModeValid(packet->gameMode))
 				{
 					Platform_Log("[CTR Adhoc] host compatibility mismatch build=%u/%u mode=%u\n", packet->build, (u32)BUILD, packet->gameMode);
 					s_nativeAdhoc.status = NATIVE_ADHOC_STATUS_ERROR;
 					continue;
 				}
+				s_nativeAdhoc.gameMode = packet->gameMode;
 				s_nativeAdhoc.sessionId = packet->sessionId;
 				s_nativeAdhoc.localPlayerIndex = packet->assignedPlayerIndex;
 				s_nativeAdhoc.roomPlayerCount = packet->totalPlayers;
@@ -2488,6 +2570,13 @@ static void NativeAdhoc_ReceivePackets(void)
 					s_nativeAdhoc.remoteMenuPads[pIdx].connected = 1;
 					s_nativeAdhoc.remoteMenuPadValid[pIdx] = 1;
 					s_nativeAdhoc.rxMenuInputSequences[pIdx] = packet->header.sequence;
+					if (pIdx == 0)
+					{
+						s_hostTrackRow = packet->trackRow;
+						s_hostLapBoxOpen = packet->lapBoxOpen;
+						s_hostLapRow = packet->lapRow;
+						s_hostMenuStateValid = 1;
+					}
 				}
 			}
 			if (s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST)
@@ -2495,6 +2584,9 @@ static void NativeAdhoc_ReceivePackets(void)
 				struct NativeAdhocMenuInputPacket relay = *packet;
 				relay.header.role = (u8)NATIVE_ADHOC_ROLE_HOST;
 				relay.header.sequence = ++s_nativeAdhoc.txSequence;
+				relay.trackRow = s_hostTrackRow;
+				relay.lapBoxOpen = s_hostLapBoxOpen;
+				relay.lapRow = s_hostLapRow;
 				NativeAdhoc_SendToPeersExcept(&relay, sizeof(relay), peerIdx);
 			}
 			continue;
@@ -3893,30 +3985,65 @@ void NativeAdhoc_ClientArmRaceProposal(void)
 	}
 }
 
-static DriverModelExtraSlot s_nativeAdhocDriver4Model = {0};
+static DriverModelExtraSlot s_nativeAdhocExtraDriverModels[8] = {0};
+
+void **NativeAdhoc_GetExtraDriverFileBasePtr(int driverIndex)
+{
+	if ((driverIndex < 0) || (driverIndex >= 8))
+	{
+		return NULL;
+	}
+	return &s_nativeAdhocExtraDriverModels[driverIndex].fileBase;
+}
+
+struct Model *NativeAdhoc_GetExtraDriverModel(int driverIndex)
+{
+	if ((driverIndex < 0) || (driverIndex >= 8))
+	{
+		return NULL;
+	}
+	return s_nativeAdhocExtraDriverModels[driverIndex].model;
+}
+
+void NativeAdhoc_FinalizeExtraDriverModels(void)
+{
+	for (int i = 0; i < 8; i++)
+	{
+		if (s_nativeAdhocExtraDriverModels[i].fileBase != NULL)
+		{
+			s_nativeAdhocExtraDriverModels[i].model =
+			    (struct Model *)((u8 *)s_nativeAdhocExtraDriverModels[i].fileBase + LOAD_MODEL_FILE_HEADER_BYTES);
+		}
+	}
+}
+
+void NativeAdhoc_ResetExtraDriverModels(void)
+{
+	for (int i = 0; i < 8; i++)
+	{
+		s_nativeAdhocExtraDriverModels[i].fileBase = NULL;
+		s_nativeAdhocExtraDriverModels[i].model = NULL;
+	}
+}
 
 void **NativeAdhoc_GetDriver4FileBasePtr(void)
 {
-	return &s_nativeAdhocDriver4Model.fileBase;
+	return NativeAdhoc_GetExtraDriverFileBasePtr(3);
 }
 
 struct Model *NativeAdhoc_GetDriver4Model(void)
 {
-	return s_nativeAdhocDriver4Model.model;
+	return NativeAdhoc_GetExtraDriverModel(3);
 }
 
 void NativeAdhoc_FinalizeDriver4Model(void)
 {
-	if (s_nativeAdhocDriver4Model.fileBase != NULL)
-	{
-		s_nativeAdhocDriver4Model.model = (struct Model *)((u8 *)s_nativeAdhocDriver4Model.fileBase + LOAD_MODEL_FILE_HEADER_BYTES);
-	}
+	NativeAdhoc_FinalizeExtraDriverModels();
 }
 
 void NativeAdhoc_ResetDriver4Model(void)
 {
-	s_nativeAdhocDriver4Model.fileBase = NULL;
-	s_nativeAdhocDriver4Model.model = NULL;
+	NativeAdhoc_ResetExtraDriverModels();
 }
 
 

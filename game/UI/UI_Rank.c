@@ -134,7 +134,7 @@ void UI_DrawRankedDrivers(void)
 #if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsSingleViewRenderActive() && (numPlyr >= 2 && numPlyr <= 4))
 	{
-		adhocVsSingleView = NativeAdhoc_GetGameMode() == NATIVE_ADHOC_GAME_MODE_VS;
+		adhocVsSingleView = (NativeAdhoc_GetGameMode() == NATIVE_ADHOC_GAME_MODE_VS);
 		numPlyr = 1;
 	}
 #endif
@@ -143,11 +143,17 @@ void UI_DrawRankedDrivers(void)
 	{
 		// Number of racers that have finished race
 		s16 numRacersFinished = 0;
+		int activeDriverCount = 0;
 
 		// incremented when looping through player structures
 
 		for (driverIndex = 0; driverIndex < UI_RANK_DRIVER_COUNT; driverIndex++)
 		{
+			if (gGT->drivers[driverIndex] != NULL)
+			{
+				activeDriverCount++;
+			}
+
 			if (data.rankIconsTransitionTimer[driverIndex] == 0)
 			{
 				// player structure + 0x482 is your rank in the race
@@ -186,6 +192,11 @@ void UI_DrawRankedDrivers(void)
 		else if (adhocVsSingleView)
 		{
 			visibleRankCount = gGT->numPlyrCurrGame;
+		}
+
+		if (visibleRankCount > activeDriverCount)
+		{
+			visibleRankCount = activeDriverCount;
 		}
 
 		// height to draw rank (this bitshifts later)

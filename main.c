@@ -28,6 +28,7 @@
 #include "platform/native_replay_scheduler.h"
 #include "platform/native_savestate.h"
 #include "platform/native_adhoc.h"
+#include "platform/native_mp_test.h"
 #include "platform/native_custom_racer.h"
 #include "platform/native_engine.h"
 #include "platform/native_leaderboard.h"
@@ -115,6 +116,7 @@ int gNativeRelicRaceResultTier = -1;
 #include "platform/native_discord.c"
 #include "platform/native_leaderboard.c"
 #include "platform/native_adhoc.c"
+#include "platform/native_mp_test.c"
 #include "platform/native_inline_c.c"
 #include "platform/native_libapi.c"
 #include "platform/native_libetc.c"
@@ -502,6 +504,7 @@ int main(int argc, char *argv[])
 	NativeUpdate_Boot();
 
 	NativeCustomRacer_Scan();
+	NativeMpTest_ConfigureFromArgs(argc, argv);
 
 #if defined(CTR_INTERNAL)
 	if (NativeReplayScheduler_PrepareReportFromArgs(argc, argv) != 0)
@@ -510,18 +513,20 @@ int main(int argc, char *argv[])
 	}
 #endif
 
+	const char *appTitle = NativeMpTest_GetWindowTitle();
+
 #if defined(__vita__)
 	printf("[CTR Native] Turbocharged widescreen 960x544\n");
-	Platform_Init("Crash Team Racing: Turbocharged", 960, 544);
+	Platform_Init(appTitle, 960, 544);
 #elif CTR_NATIVE_WIDESCREEN
 	printf("[CTR Native] Turbocharged widescreen 1280x720\n");
-	Platform_Init("Crash Team Racing: Turbocharged", 1280, 720);
+	Platform_Init(appTitle, 1280, 720);
 #elif defined(USE_16BY9)
 	printf("[CTR Native] Widescreen\n");
-	Platform_Init("Crash Team Racing: Turbocharged", 1280, 720);
+	Platform_Init(appTitle, 1280, 720);
 #else
 	printf("[CTR Native] 4:3\n");
-	Platform_Init("Crash Team Racing: Turbocharged", 800, 600);
+	Platform_Init(appTitle, 800, 600);
 #endif
 
 #if defined(CTR_INTERNAL)

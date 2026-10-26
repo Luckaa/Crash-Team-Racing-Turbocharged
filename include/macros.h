@@ -52,10 +52,13 @@ typedef double f64;
 #if defined(CTR_NATIVE) && defined(__vita__)
 #define CTR_NATIVE_HAS_ADHOC       1
 #define CTR_NATIVE_HAS_LEADERBOARD 1
-#elif defined(CTR_NATIVE) && (defined(_WIN32) || defined(__EMSCRIPTEN__))
-#define CTR_NATIVE_HAS_ADHOC       0
+#elif defined(CTR_NATIVE) && defined(_WIN32)
+#define CTR_NATIVE_HAS_ADHOC       1
 // Inherited from High Octane; it talks to the upstream author's server, so it
 // is disabled in Turbocharged. Change this to 1 to build it back in.
+#define CTR_NATIVE_HAS_LEADERBOARD 0
+#elif defined(CTR_NATIVE) && defined(__EMSCRIPTEN__)
+#define CTR_NATIVE_HAS_ADHOC       0
 #define CTR_NATIVE_HAS_LEADERBOARD 0
 #else
 #define CTR_NATIVE_HAS_ADHOC       0

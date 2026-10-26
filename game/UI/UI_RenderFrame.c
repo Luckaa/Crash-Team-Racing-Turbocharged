@@ -603,29 +603,54 @@ void UI_RenderFrame_Racing()
 				sVar2 = hudStructPtr[UI_HUD_SLOT_RANK].y;
 				UI_DrawPosSuffix(sVar1, sVar2, playerStruct, (s16)partTimeVariable5);
 
+#if defined(CTR_NATIVE)
+				if ((numPlyr > 2) && (!NativeAdhoc_IsSingleViewRenderActive() || (playerStruct->instBigNum == NULL)))
+#else
 				if (numPlyr > 2)
+#endif
 				{
 					// Get Color Data
 					ptrColor = data.ptrColor[sVar17];
 
 					// icon pointer, specifically for the big rank icons that start at 0x19
-					iconPtr = gGT->ptrIcons[(int)playerStruct->driverRank + 0x19];
+					// Retail CTR only has 4 2D rank icons (0x19=1, 0x1a=2, 0x1b=3, 0x1c=4).
+					// Index 0x20 is Crash Bandicoot portrait, so driverRank >= 4 must NOT read ptrIcons!
+					if (playerStruct->driverRank >= 0 && playerStruct->driverRank <= 3)
+					{
+						iconPtr = gGT->ptrIcons[(int)playerStruct->driverRank + 0x19];
+					}
+					else
+					{
+						iconPtr = NULL;
+					}
 
 				LAB_80053aec:
 
-					DecalHUD_DrawPolyGT4(
-					    // icon pointer
-					    iconPtr,
+					if (iconPtr != NULL)
+					{
+						DecalHUD_DrawPolyGT4(
+						    // icon pointer
+						    iconPtr,
 
-					    // position
-					    (int)hudStructPtr[UI_HUD_SLOT_BIG1].x, (int)hudStructPtr[UI_HUD_SLOT_BIG1].y,
+						    // position
+						    (int)hudStructPtr[UI_HUD_SLOT_BIG1].x, (int)hudStructPtr[UI_HUD_SLOT_BIG1].y,
 
-					    &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT,
+						    &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT,
 
-					    // color data
-					    ptrColor[0], ptrColor[1], ptrColor[2], ptrColor[3],
+						    // color data
+						    ptrColor[0], ptrColor[1], ptrColor[2], ptrColor[3],
 
-					    0, FP(1.0));
+						    0, FP(1.0));
+					}
+					else if (playerStruct->driverRank >= 4 && playerStruct->driverRank <= 7)
+					{
+						// In 2D fallback mode for 5th..8th place, draw the rank digit with DecalFont
+						char rankText[2];
+						rankText[0] = (char)('1' + playerStruct->driverRank);
+						rankText[1] = '\0';
+						DecalFont_DrawLine(rankText, (int)hudStructPtr[UI_HUD_SLOT_BIG1].x,
+						                   (int)hudStructPtr[UI_HUD_SLOT_BIG1].y, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+					}
 				}
 			}
 
@@ -642,8 +667,15 @@ void UI_RenderFrame_Racing()
 
 				// pointer to icon
 				// get rank icon of each battle team after battle is over
-				// OH GOD THIS IS CONVOLUTED and probably wrong --Super
-				iconPtr = gGT->ptrIcons[gGT->battleSetup.finishedRankOfEachTeam[playerStruct->BattleHUD.teamID] + 0x19];
+				int battleRank = gGT->battleSetup.finishedRankOfEachTeam[playerStruct->BattleHUD.teamID];
+				if (battleRank >= 0 && battleRank <= 3)
+				{
+					iconPtr = gGT->ptrIcons[battleRank + 0x19];
+				}
+				else
+				{
+					iconPtr = NULL;
+				}
 
 				goto LAB_80053aec;
 			}

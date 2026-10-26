@@ -587,11 +587,12 @@ struct Model *VehBirth_GetModelByName(char *searchName)
 	}
 
 #if defined(CTR_NATIVE)
+	for (int i = 3; i < 8; i++)
 	{
-		struct Model *d4 = NativeAdhoc_GetDriver4Model();
-		if ((d4 != NULL) && (NativeCustomRacer_GetDriverSelection(3) < 0) && VehBirth_ModelNameEquals(d4, searchName))
+		struct Model *d = NativeAdhoc_GetExtraDriverModel(i);
+		if ((d != NULL) && (NativeCustomRacer_GetDriverSelection(i) < 0) && VehBirth_ModelNameEquals(d, searchName))
 		{
-			return d4;
+			return d;
 		}
 	}
 #endif
@@ -794,7 +795,15 @@ void VehBirth_NonGhost(struct Thread *t, int index)
 #if defined(CTR_NATIVE)
 		if (m == NULL)
 		{
-			m = NativeAdhoc_GetDriver4Model();
+			for (int i = 3; i < 8; i++)
+			{
+				struct Model *extra = NativeAdhoc_GetExtraDriverModel(i);
+				if (extra != NULL)
+				{
+					m = extra;
+					break;
+				}
+			}
 		}
 #endif
 	}

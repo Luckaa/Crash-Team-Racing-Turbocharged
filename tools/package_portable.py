@@ -9,7 +9,7 @@ DIST_DIR = ROOT / "dist"
 STANDALONE_DIR = DIST_DIR / "CTR_Turbocharged_Multiplayer"
 ZIP_PATH = ROOT / "CTR_Turbocharged_Multiplayer.zip"
 
-def create_package():
+def create_package(custom_host_ip=None):
     print(f"[*] Packaging CTR Turbocharged from: {BUILD_RELEASE}")
     
     exe_path = BUILD_RELEASE / "Crash Team Racing - Turbocharged.exe"
@@ -31,13 +31,22 @@ def create_package():
         print("[+] Copying config.ini...")
         shutil.copy2(config_src, STANDALONE_DIR / "config.ini")
 
-    # 3. Copy multiplayer_ip.txt
-    ip_src = ROOT / "multiplayer_ip.txt"
-    if not ip_src.exists():
-        ip_src = BUILD_RELEASE / "multiplayer_ip.txt"
-    if ip_src.exists():
-        print("[+] Copying multiplayer_ip.txt...")
-        shutil.copy2(ip_src, STANDALONE_DIR / "multiplayer_ip.txt")
+    # 3. Handle multiplayer_ip.txt
+    if custom_host_ip:
+        ip_content = (
+            "# Configuracao de IP para Conexao Multiplayer (Crash Team Racing - Turbocharged)\r\n"
+            "# IP do Host pre-configurado:\r\n"
+            f"{custom_host_ip}\r\n"
+        )
+        (STANDALONE_DIR / "multiplayer_ip.txt").write_text(ip_content, encoding="utf-8")
+        print(f"[+] Configured multiplayer_ip.txt with Host IP: {custom_host_ip}")
+    else:
+        ip_src = ROOT / "multiplayer_ip.txt"
+        if not ip_src.exists():
+            ip_src = BUILD_RELEASE / "multiplayer_ip.txt"
+        if ip_src.exists():
+            print("[+] Copying multiplayer_ip.txt...")
+            shutil.copy2(ip_src, STANDALONE_DIR / "multiplayer_ip.txt")
 
     # 4. Copy assets directory
     assets_src = BUILD_RELEASE / "assets"
@@ -54,6 +63,28 @@ def create_package():
         "@echo off\r\n"
         "title Crash Team Racing - Turbocharged\r\n"
         "cd /d \"%~dp0\"\r\n"
+        "start \"\" \"Crash Team Racing - Turbocharged.exe\"\r\n",
+        encoding="utf-8"
+    )
+
+    # 5B. Create ENTRAR_NA_PARTIDA.bat inside standalone folder
+    entrar_bat = STANDALONE_DIR / "ENTRAR_NA_PARTIDA.bat"
+    entrar_bat.write_text(
+        "@echo off\r\n"
+        "title Crash Team Racing - Turbocharged (Entrar na Partida)\r\n"
+        "cd /d \"%~dp0\"\r\n"
+        "echo ========================================================\r\n"
+        "echo     CONECTANDO A PARTIDA MULTIPLAYER DO SEU AMIGO\r\n"
+        "echo ========================================================\r\n"
+        "echo.\r\n"
+        "echo Host configurado:\r\n"
+        "type multiplayer_ip.txt 2>nul\r\n"
+        "echo.\r\n"
+        "echo [INSTRUCOES]\r\n"
+        "echo 1. O jogo vai abrir em instantes.\r\n"
+        "echo 2. No menu principal, va em MULTIPLAYER e escolha BUSCAR SALA.\r\n"
+        "echo 3. Aguarde o Host iniciar a corrida!\r\n"
+        "echo.\r\n"
         "start \"\" \"Crash Team Racing - Turbocharged.exe\"\r\n",
         encoding="utf-8"
     )
@@ -97,6 +128,15 @@ def create_package():
         encoding="utf-8"
     )
 
+    # 6B. Copy LIBERAR_FIREWALL.bat & VER_MEU_IP_WIFI.bat
+    firewall_src = ROOT / "LIBERAR_FIREWALL.bat"
+    if firewall_src.exists():
+        shutil.copy2(firewall_src, STANDALONE_DIR / "LIBERAR_FIREWALL.bat")
+    
+    wifi_src = ROOT / "VER_MEU_IP_WIFI.bat"
+    if wifi_src.exists():
+        shutil.copy2(wifi_src, STANDALONE_DIR / "VER_MEU_IP_WIFI.bat")
+
     # 7. Create COMO_JOGAR_ONLINE.txt
     help_txt = STANDALONE_DIR / "COMO_JOGAR_ONLINE.txt"
     help_txt.write_text(
@@ -115,30 +155,27 @@ def create_package():
         "------------------------------------------------------------------------\r\n"
         "2. COMO JOGAR MULTIPLAYER (2 a 4 Jogadores):\r\n"
         "------------------------------------------------------------------------\r\n"
-        "O jogo possui modo Multiplayer nativo de 2, 3 e 4 jogadores (sem bots)!\r\n"
+        "O jogo possui modo Multiplayer nativo de 2, 3 e 4 jogadores (com bots completando ate 8)!\r\n"
         "\r\n"
         "A) O JOGADOR QUE FOR CRIAR A SALA (HOST):\r\n"
         "   1. Abra o jogo (\"JOGAR.bat\").\r\n"
         "   2. No menu principal, va na opcao MULTIPLAYER e escolha CRIAR SALA.\r\n"
         "   3. Aguarde os outros jogadores entrarem na sala (aparecera 2/4, 3/4, 4/4).\r\n"
         "   4. Aperte o botao de iniciar (Start / X) para abrir a escolha de pista.\r\n"
+        "   * DICA: Se for a primeira vez, execute 'LIBERAR_FIREWALL.bat' para\r\n"
+        "     garantir que o Windows Defender nao bloqueie a conexao.\r\n"
         "\r\n"
         "B) OS JOGADORES QUE FOREM ENTRAR (CLIENTS):\r\n"
-        "   1. De 2 cliques em \"CONFIGURAR_IP.bat\".\r\n"
-        "   2. Digite o IP do jogador Host e aperte Enter:\r\n"
-        "      - OPCAO 1 (Mesma Rede / Wi-Fi da casa - Sem nenhum programa):\r\n"
-        "        Coloque o IPv4 local do Host (ex: 192.168.1.15).\r\n"
-        "      - OPCAO 2 (Pela Internet direto - Sem nenhum programa instalado):\r\n"
-        "        O Host abre a porta 31847 UDP no roteador e passa o IP do site meuip.com.br.\r\n"
-        "      - OPCAO 3 (Pela Internet via Playit.gg ou Tunel):\r\n"
-        "        Coloque o endereco gerado pelo Playit (ex: 147.185.221.16:12345).\r\n"
-        "      - OPCAO 4 (Via VPN virtual - Radmin / Tailscale / ZeroTier):\r\n"
-        "        Coloque o IP do Host fornecido pelo programa (ex: 26.x.x.x).\r\n"
-        "      - OPCAO 5 (No mesmo PC para testar - 2 janelas):\r\n"
-        "        Coloque 127.0.0.1.\r\n"
-        "   3. Abra o jogo (\"JOGAR.bat\").\r\n"
-        "   4. No menu, va em MULTIPLAYER e escolha BUSCAR SALA.\r\n"
-        "   5. Pronto! Voce sera conectado automaticamente a sala do Host.\r\n"
+        "   - NA MESMA CASA / MESMO WI-FI:\r\n"
+        "     O jogo possui busca automatica na rede local!\r\n"
+        "     Basta abrir o jogo (\"ENTRAR_NA_PARTIDA.bat\") e em MULTIPLAYER escolher BUSCAR SALA.\r\n"
+        "     (Se o seu roteador bloquear broadcast, abra 'VER_MEU_IP_WIFI.bat' no PC do Host,\r\n"
+        "      pegue o IP local dele ex: 192.168.x.x e coloque no 'CONFIGURAR_IP.bat' do Client).\r\n"
+        "\r\n"
+        "   - EM CASAS DIFERENTES (PELA INTERNET):\r\n"
+        "     1. De 2 cliques em \"CONFIGURAR_IP.bat\".\r\n"
+        "     2. Digite o IP do jogador Host (ex: IP do Radmin VPN 26.x.x.x ou IP publico / Playit.gg).\r\n"
+        "     3. Abra o jogo e va em MULTIPLAYER -> BUSCAR SALA.\r\n"
         "\r\n"
         "------------------------------------------------------------------------\r\n"
         "3. CONTROLES PADRAO (TECLADO):\r\n"
@@ -149,7 +186,7 @@ def create_package():
         "- Pular / Drift (L1/R1): Teclas Shift / Barra de Espaco\r\n"
         "- Direcionais: Setas do Teclado\r\n"
         "- Pause: Enter\r\n"
-        "- Suporta Controles USB (PlayStation, Xbox, Genéricos) nativamente via Plug and Play!\r\n"
+        "- Suporta Controles USB (PlayStation, Xbox, Genericos) nativamente via Plug and Play!\r\n"
         "========================================================================\r\n",
         encoding="utf-8"
     )
@@ -173,4 +210,6 @@ def create_package():
     print(f"  - Zip Archive:       {ZIP_PATH} ({ZIP_PATH.stat().st_size / (1024*1024):.2f} MB)")
 
 if __name__ == "__main__":
-    create_package()
+    import sys
+    custom_ip = sys.argv[1] if len(sys.argv) > 1 else "26.235.216.50"
+    create_package(custom_ip)

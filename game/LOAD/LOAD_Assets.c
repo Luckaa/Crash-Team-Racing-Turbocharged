@@ -418,9 +418,64 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 		int numPlyrs = (gGT != NULL && gGT->numPlyrCurrGame >= 2 && gGT->numPlyrCurrGame <= 4)
 		               ? gGT->numPlyrCurrGame : 2;
 
-		Platform_Log("[CTR Load] LOAD_DriverMPK: Adhoc multiplayer loading %d human drivers...\n", numPlyrs);
+		Platform_Log("[CTR Load] LOAD_DriverMPK: Adhoc multiplayer loading %d human drivers (mode=%d)...\n",
+		             numPlyrs, NativeAdhoc_GetGameMode());
 
-		// Queue human driver models: 0 to min(numPlyrs, 3) - 1
+		// In Arcade mode: load all racers up to 8 total (human players + AI bots)
+		if (NativeAdhoc_GetGameMode() == NATIVE_ADHOC_GAME_MODE_ARCADE)
+		{
+			// Deterministically assign unique characters to bot slots numPlyrs..7
+			for (int botSlot = numPlyrs; botSlot < 8; botSlot++)
+			{
+				int chosenChar = -1;
+				for (int candidate = 0; candidate < 16; candidate++)
+				{
+					int taken = 0;
+					for (int prev = 0; prev < botSlot; prev++)
+					{
+						if (data.characterIDs[prev] == candidate)
+						{
+							taken = 1;
+							break;
+						}
+					}
+					if (!taken)
+					{
+						chosenChar = candidate;
+						break;
+					}
+				}
+				data.characterIDs[botSlot] = (chosenChar >= 0) ? (s16)chosenChar : 0;
+			}
+
+			// Queue models for racers 0..6 (7 models total)
+			for (i = 0; i < 7; i++)
+			{
+				void **targetPtr = (i < LOAD_DRIVER_MODEL_EXTRA_COUNT)
+				                   ? &data.driverModelExtras[i].fileBase
+				                   : NativeAdhoc_GetExtraDriverFileBasePtr(i);
+
+				if (i < numPlyrs)
+				{
+					if (!NativeCustomRacer_QueueSelectedModel(i, targetPtr))
+					{
+						LOAD_AppendQueue(bigfile, LT_GETADDR, BI_RACERMODELMED + data.characterIDs[i],
+						                 targetPtr, LOAD_DriverMPK_SetPointer);
+					}
+				}
+				else
+				{
+					LOAD_AppendQueue(bigfile, LT_GETADDR, BI_RACERMODELMED + data.characterIDs[i],
+					                 targetPtr, LOAD_DriverMPK_SetPointer);
+				}
+			}
+
+			// 8th racer (index 7) comes from BI_4PARCADEPACK as the shared MPK pack!
+			LOAD_AppendQueue(bigfile, LT_GETADDR, BI_4PARCADEPACK + data.characterIDs[7], NULL, callback);
+			return sdata->ptrMPK;
+		}
+
+		// VS mode: queue human driver models: 0 to min(numPlyrs, 3) - 1
 		int maxExtra = numPlyrs < LOAD_DRIVER_MODEL_EXTRA_COUNT ? numPlyrs : LOAD_DRIVER_MODEL_EXTRA_COUNT;
 		for (i = 0; i < maxExtra; i++)
 		{
@@ -442,7 +497,6 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 		}
 
 		// Shared MPK: weapons, wumpa, icons, decals, traffic lights
-		// Always load 2P arcade pack, without touching human characterIDs!
 		LOAD_AppendQueue(bigfile, LT_GETADDR, BI_2PARCADEPACK, NULL, callback);
 		return sdata->ptrMPK;
 	}

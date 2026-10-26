@@ -66,6 +66,7 @@ const char *NativeAdhoc_GetStatusText(void);
 void NativeAdhoc_SetCustomHostIp(const char *ip);
 const char *NativeAdhoc_GetCustomHostIp(void);
 u16 NativeAdhoc_GetCustomHostPort(void);
+void NativeAdhoc_SetCustomHostPort(u16 port);
 int NativeAdhoc_IsLobbyStarted(void);
 void NativeAdhoc_StartLobby(void);
 int NativeAdhoc_IsRaceConfigReady(void);
@@ -76,6 +77,16 @@ void **NativeAdhoc_GetDriver4FileBasePtr(void);
 struct Model *NativeAdhoc_GetDriver4Model(void);
 void NativeAdhoc_FinalizeDriver4Model(void);
 void NativeAdhoc_ResetDriver4Model(void);
+void **NativeAdhoc_GetExtraDriverFileBasePtr(int driverIndex);
+struct Model *NativeAdhoc_GetExtraDriverModel(int driverIndex);
+void NativeAdhoc_FinalizeExtraDriverModels(void);
+void NativeAdhoc_ResetExtraDriverModels(void);
+void NativeAdhoc_SetHostMenuState(u8 trackRow, u8 lapBoxOpen, u8 selectedLapRow);
+int NativeAdhoc_GetHostTrackRow(void);
+int NativeAdhoc_GetHostLapBoxOpen(void);
+int NativeAdhoc_GetHostLapRow(void);
+int NativeAdhoc_IsHostMenuStateValid(void);
+void NativeAdhoc_ResetRaceConfigState(void);
 
 #endif
 

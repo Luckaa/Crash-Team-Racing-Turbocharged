@@ -521,6 +521,10 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 	{
 		// get level pointer
 		struct Level *lev = sdata->ptrLevelFile;
+#if defined(CTR_NATIVE)
+		Platform_Log("[CTR Load] Stage 7: lev=%p, mpkIcons=0x%x, freeMem=%d\n",
+		             lev, gGT->mpkIcons, MEMPACK_GetFreeBytes());
+#endif
 
 		gGT->level1 = lev;
 		gGT->visMem1 = lev->visMem;
@@ -538,6 +542,9 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 		// if level is not nullptr
 		if (lev != 0)
 		{
+#if defined(CTR_NATIVE)
+			Platform_Log("[CTR Load] Stage 7: LibraryOfModels_Store (numModels=%d)...\n", lev->numModels);
+#endif
 			LibraryOfModels_Store(gGT, lev->numModels, lev->ptrModelsPtrArray);
 
 			gGT->ptrCircle = (u32)DecalGlobal_FindInLEV(lev, rdata.s_circle);
@@ -550,6 +557,9 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 		// if linked list of icons exists
 		if (gGT->mpkIcons != 0)
 		{
+#if defined(CTR_NATIVE)
+			Platform_Log("[CTR Load] Stage 7: DecalGlobal_FindInMPK...\n");
+#endif
 			u32 *mpkIconList = (u32 *)*(u32 *)(gGT->mpkIcons + 4);
 
 			gGT->trafficLightIcon[0] = (struct Icon *)DecalGlobal_FindInMPK(mpkIconList, rdata.s_lightredoff);
@@ -562,7 +572,13 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 
 		if (((gGT->gameMode1 & (GAME_CUTSCENE | ADVENTURE_ARENA)) == 0) && ((gGT->gameMode2 & CREDITS) == 0))
 		{
+#if defined(CTR_NATIVE)
+			Platform_Log("[CTR Load] Stage 7: Calling MainInit_JitPoolsNew...\n");
+#endif
 			MainInit_JitPoolsNew(gGT);
+#if defined(CTR_NATIVE)
+			Platform_Log("[CTR Load] Stage 7: MainInit_JitPoolsNew done! Returning stage 8\n");
+#endif
 			return loadingStage + 1;
 		}
 

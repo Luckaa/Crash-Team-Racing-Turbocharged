@@ -100,7 +100,7 @@ void AA_EndEvent_DrawMenu(void)
 
 	sdata->framesSinceRaceEnded = elapsedFrames;
 
-	if (driver->instBigNum->scale.x != AA_BIG_NUM_TARGET_SCALE)
+	if ((driver->instBigNum != NULL) && (driver->instBigNum->scale.x != AA_BIG_NUM_TARGET_SCALE))
 	{
 		struct Instance *instFruitDisp = driver->instFruitDisp;
 		instFruitDisp->scale = (SVec3){{0, 0, 0}};
@@ -578,7 +578,7 @@ void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 #if defined(CTR_NATIVE)
 	u32 *adhocSavedPushUiOT = NULL;
 	u32 *adhocSavedDbUiOT = NULL;
-	if (NativeAdhoc_IsConnected() && (numPlayers == 2))
+	if ((NativeAdhoc_IsConnected() || NativeAdhoc_IsActive()) && (numPlayers >= 2 && numPlayers <= 4))
 	{
 		int localPlayer = NativeAdhoc_GetLocalPlayerIndex();
 		if (driverId == localPlayer)
@@ -685,14 +685,17 @@ void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 	// interpolate fly-in positionXY
 	UI_Lerp2D_Linear(pos.v, lerpStartX, lerpStartY, lerpEndX, lerpEndY, currFrame, endFrame);
 
-	bigNum->matrix.t[0] = pos.x;
-	bigNum->matrix.t[1] = pos.y;
+	if (bigNum != NULL)
+	{
+		bigNum->matrix.t[0] = pos.x;
+		bigNum->matrix.t[1] = pos.y;
 
-	// interpolate scale to the target big-number size
-	UI_Lerp2D_Linear(pos.v, hud[AA_TIME_DISPLAY_BIG_NUM_SLOT].scale, 0, AA_BIG_NUM_TARGET_SCALE, 0, framesElapsed, FPS_DOUBLE(AA_TIME_DISPLAY_FLYIN_FRAMES));
-	s16 bigNumScale = pos.x;
+		// interpolate scale to the target big-number size
+		UI_Lerp2D_Linear(pos.v, hud[AA_TIME_DISPLAY_BIG_NUM_SLOT].scale, 0, AA_BIG_NUM_TARGET_SCALE, 0, framesElapsed, FPS_DOUBLE(AA_TIME_DISPLAY_FLYIN_FRAMES));
+		s16 bigNumScale = pos.x;
 
-	bigNum->scale = (SVec3){{bigNumScale, bigNumScale, bigNumScale}};
+		bigNum->scale = (SVec3){{bigNumScale, bigNumScale, bigNumScale}};
+	}
 
 	// === Draw Suffix ===
 

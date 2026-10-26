@@ -180,19 +180,6 @@ void UI_ThTick_CountPickup(struct Thread *bucket)
 			                       ? 0
 			                       : ((s16)sdata->wumpaShineResult - UI_REWARD_WUMPA_SHINE_CENTER) << UI_REWARD_WUMPA_SHINE_SHIFT;
 
-#if CTR_NATIVE_HAS_ADHOC
-			if (NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame >= 2) &&
-			    (owner == NativeAdhoc_GetLocalPlayerIndex()))
-			{
-				struct UiElement2D *hud = &data.hudStructPtr[0][UI_HUD_SLOT_FRUIT_MODEL];
-				inst->matrix.t[0] = UI_ConvertX_2(hud->x, hud->z);
-				inst->matrix.t[1] = UI_ConvertY_2(hud->y, hud->z);
-				inst->matrix.t[2] = hud->z;
-				inst->scale.x = hud->scale;
-				inst->scale.y = hud->scale;
-				inst->scale.z = hud->scale;
-			}
-#endif
 		}
 	}
 #endif
@@ -207,6 +194,41 @@ void UI_ThTick_CountPickup(struct Thread *bucket)
 		inst->flags |= HIDE_MODEL;
 	}
 
+#if defined(CTR_NATIVE)
+	if (!isTimeCrate && (inst->model->id == STATIC_FRUITDISP) &&
+	    NativeAdhoc_IsConnected() && (gGT != NULL) && (gGT->numPlyrCurrGame >= 2) && ((gGT->gameMode1 & MAIN_MENU) == 0))
+	{
+		int owner = -1;
+		int localPlayer = NativeAdhoc_GetLocalPlayerIndex();
+
+		for (int i = 0; i < gGT->numPlyrCurrGame; i++)
+		{
+			if ((gGT->drivers[i] != NULL) && (gGT->drivers[i]->instFruitDisp == inst))
+			{
+				owner = i;
+				break;
+			}
+		}
+
+		if (owner >= 0)
+		{
+			if (owner != localPlayer)
+			{
+				inst->flags |= HIDE_MODEL;
+			}
+			else
+			{
+				struct UiElement2D *hud = &data.hudStructPtr[0][UI_HUD_SLOT_FRUIT_MODEL];
+				inst->matrix.t[0] = UI_ConvertX_2(hud->x, hud->z);
+				inst->matrix.t[1] = UI_ConvertY_2(hud->y, hud->z);
+				inst->matrix.t[2] = hud->z;
+				inst->scale.x = hud->scale;
+				inst->scale.y = hud->scale;
+				inst->scale.z = hud->scale;
+			}
+		}
+	}
+#endif
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004c850-0x8004c914.
@@ -304,7 +326,7 @@ void UI_ThTick_big1(struct Thread *bucket)
 
 #if defined(CTR_NATIVE)
 	struct GameTracker *gGT = sdata->gGT;
-	if (NativeAdhoc_IsConnected() && (gGT != NULL) && (gGT->numPlyrCurrGame >= 2) && ((gGT->gameMode1 & MAIN_MENU) == 0))
+	if ((NativeAdhoc_IsConnected() || NativeAdhoc_IsActive()) && (gGT != NULL) && (gGT->numPlyrCurrGame >= 2) && ((gGT->gameMode1 & MAIN_MENU) == 0))
 	{
 		int owner = -1;
 		int localPlayer = NativeAdhoc_GetLocalPlayerIndex();
@@ -328,7 +350,11 @@ void UI_ThTick_big1(struct Thread *bucket)
 
 			inst->matrix.t[0] = UI_ConvertX_2(hud->x, hud->z);
 			inst->matrix.t[1] = UI_ConvertY_2(hud->y, hud->z);
-			inst->matrix.t[2] = hud->z;
+			struct Driver *ownerDriver = (owner >= 0 && owner < gGT->numPlyrCurrGame) ? gGT->drivers[owner] : NULL;
+			int rank = (ownerDriver != NULL) ? ownerDriver->driverRank : 0;
+			if (rank < 0) rank = 0;
+			if (rank > 7) rank = 7;
+			inst->matrix.t[2] = hud->z + rank;
 			inst->scale.x = hud->scale;
 			inst->scale.y = hud->scale;
 			inst->scale.z = hud->scale;

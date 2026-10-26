@@ -1,9 +1,12 @@
 #include <common.h>
 
-#if defined(CTR_NATIVE) && defined(CTR_INTERNAL)
+#if defined(CTR_NATIVE)
+#include <platform/native_mp_test.h>
+#if defined(CTR_INTERNAL)
 #include <platform/native_perf.h>
 #include <platform/native_replay_scheduler.h>
 #include <platform/native_savestate.h>
+#endif
 #endif
 
 
@@ -105,6 +108,7 @@ u32 main(void)
 		CDSYS_XAPauseAtEnd();
 
 #if defined(CTR_NATIVE)
+		NativeMpTest_Update();
 		if (NativeAdhoc_ShouldReturnToMainMenu() && (sdata->Loading.stage == LOAD_IDLE))
 		{
 			gGT = sdata->gGT;

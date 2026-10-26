@@ -86,6 +86,9 @@ void *MEMPACK_AllocMem(int allocSize)
 
 	if (MEMPACK_GetFreeBytes() < allocSize)
 	{
+#if defined(CTR_NATIVE)
+		Platform_LogError("[CTR Mempack] OOM in MEMPACK_AllocMem! allocSize=%d, freeBytes=%d\n", allocSize, MEMPACK_GetFreeBytes());
+#endif
 		CTR_ErrorScreen(0xFF, 0, 0);
 		for (;;)
 		{
@@ -105,6 +108,13 @@ void *MEMPACK_AllocMem(int allocSize)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003e8e8-0x8003e938.
 void *MEMPACK_AllocHighMem(int allocSize)
 {
+	if (MEMPACK_GetFreeBytes() < allocSize)
+	{
+#if defined(CTR_NATIVE)
+		Platform_LogError("[CTR Mempack] OOM in MEMPACK_AllocHighMem! allocSize=%d, freeBytes=%d\n", allocSize, MEMPACK_GetFreeBytes());
+#endif
+	}
+
 	while (MEMPACK_GetFreeBytes() < allocSize)
 	{
 	}

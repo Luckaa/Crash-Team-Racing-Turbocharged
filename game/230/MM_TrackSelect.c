@@ -525,6 +525,7 @@ void MM_TrackSelect_Init(void)
 	s_reverseVariantOpen = false;
 	s_reverseVariantMenu.rowSelected = 0;
 	NativeReverseTrack_ClearSelection();
+	NativeAdhoc_ResetRaceConfigState();
 #endif
 
 	// set track index to the index selected in track selection menu, starts at 0 for both Arcade and Battle
@@ -690,6 +691,59 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 	s16 currTrack = menu->rowSelected;
 	sdata->trackSelBackup = currTrack;
 
+#if defined(CTR_NATIVE)
+	if (NativeAdhoc_IsActive() && (NativeAdhoc_GetRole() == NATIVE_ADHOC_ROLE_CLIENT))
+	{
+		NativeAdhoc_ClientArmRaceProposal();
+		if (NativeAdhoc_IsRaceConfigReady())
+		{
+			gGT->currLEV = NativeAdhoc_GetConfiguredLEV();
+			gGT->numLaps = NativeAdhoc_GetConfiguredLaps();
+			sdata->ptrDesiredMenu = &data.menuQueueLoadTrack;
+			return;
+		}
+
+		if (NativeAdhoc_IsHostMenuStateValid())
+		{
+			int hostTrack = NativeAdhoc_GetHostTrackRow();
+			int hostLapOpen = NativeAdhoc_GetHostLapBoxOpen();
+			int hostLapRow = NativeAdhoc_GetHostLapRow();
+
+			if (hostTrack >= 0 && hostTrack < numTracks && menu->rowSelected != hostTrack)
+			{
+				int direction = (hostTrack > menu->rowSelected) ? -1 : 1;
+				if (abs(hostTrack - menu->rowSelected) > (numTracks / 2))
+				{
+					direction = -direction;
+				}
+				menu->rowSelected = hostTrack;
+				D230.trackSelect.currentTrack = hostTrack;
+				D230.trackSelect.trackChangeFrames = FPS_DOUBLE(MM_TRACK_SELECT_TRACK_CHANGE_FRAMES);
+				D230.trackSelect.trackChangeDirection = direction;
+				OtherFX_Play(0, 1);
+			}
+
+			if (hostLapOpen)
+			{
+				if (D230.trackSelect.lapBoxOpen == 0)
+				{
+					D230.trackSelect.lapBoxOpen = (D230.trackSelect.transition.state == IN_MENU) ? IN_MENU : 1;
+				}
+			}
+			else
+			{
+				D230.trackSelect.lapBoxOpen = 0;
+			}
+
+			D230.menuLapSel.rowSelected = hostLapRow;
+			sdata->uselessLapRowCopy = hostLapRow;
+			gGT->numLaps = MM_NativeLapSelect_GetLapCount(hostLapRow);
+		}
+
+		RECTMENU_ClearInput();
+	}
+#endif
+
 	// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800b02b0-0x800b04c8.
 	// if lap selection menu is closed
 	if (D230.trackSelect.lapBoxOpen == 0)
@@ -725,19 +779,8 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 			}
 			RECTMENU_ClearInput();
 		}
-		else
-#endif
-#if defined(CTR_NATIVE)
-		if (NativeAdhoc_IsActive() && (NativeAdhoc_GetRole() == NATIVE_ADHOC_ROLE_CLIENT))
+		else if (NativeAdhoc_IsActive() && (NativeAdhoc_GetRole() == NATIVE_ADHOC_ROLE_CLIENT))
 		{
-			NativeAdhoc_ClientArmRaceProposal();
-			if (NativeAdhoc_IsRaceConfigReady())
-			{
-				gGT->currLEV = NativeAdhoc_GetConfiguredLEV();
-				gGT->numLaps = NativeAdhoc_GetConfiguredLaps();
-				sdata->ptrDesiredMenu = &data.menuQueueLoadTrack;
-				return;
-			}
 			RECTMENU_ClearInput();
 		}
 		else
@@ -876,13 +919,27 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 	{
 		s16 lapSelTransitionState = 0;
 
-		// copy LapRow from 8d920 to temp variable b55ae
-		D230.menuLapSel.rowSelected = sdata->uselessLapRowCopy;
-
-		// If you're in track selection menu
-		if (D230.trackSelect.transition.state == IN_MENU)
+#if defined(CTR_NATIVE)
+		if (NativeAdhoc_IsActive() && (NativeAdhoc_GetRole() == NATIVE_ADHOC_ROLE_CLIENT))
 		{
-			lapSelTransitionState = RECTMENU_ProcessInput(&D230.menuLapSel);
+			if (NativeAdhoc_IsHostMenuStateValid())
+			{
+				sdata->uselessLapRowCopy = NativeAdhoc_GetHostLapRow();
+			}
+			D230.menuLapSel.rowSelected = sdata->uselessLapRowCopy;
+			RECTMENU_ClearInput();
+		}
+		else
+#endif
+		{
+			// copy LapRow from 8d920 to temp variable b55ae
+			D230.menuLapSel.rowSelected = sdata->uselessLapRowCopy;
+
+			// If you're in track selection menu
+			if (D230.trackSelect.transition.state == IN_MENU)
+			{
+				lapSelTransitionState = RECTMENU_ProcessInput(&D230.menuLapSel);
+			}
 		}
 
 		RECTMENU_DrawSelf(&D230.menuLapSel, D230.trackSelect_lapMenuTransition.currX, D230.trackSelect_lapMenuTransition.currY, MM_TRACK_SELECT_LAP_MENU_WIDTH);
@@ -944,6 +1001,10 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 	if (!NativeAdhoc_IsActive() || (NativeAdhoc_GetRole() == NATIVE_ADHOC_ROLE_HOST))
 	{
 		gGT->currLEV = NativeReverseTrack_GetTrackIdForPhysical(selectMenu[menu->rowSelected].levID);
+		if (NativeAdhoc_IsActive())
+		{
+			NativeAdhoc_SetHostMenuState((u8)menu->rowSelected, (u8)(D230.trackSelect.lapBoxOpen != 0), (u8)D230.menuLapSel.rowSelected);
+		}
 	}
 #else
 	gGT->currLEV = selectMenu[menu->rowSelected].levID;

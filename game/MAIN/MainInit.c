@@ -367,10 +367,22 @@ void MainInit_JitPoolsNew(struct GameTracker *gGT)
 		}
 	}
 
+#if defined(CTR_NATIVE)
+	Platform_Log("[CTR Init] MainInit_JitPoolsNew: numPlyrCurrGame=%d, poolScale=0x%x, freeMem=%d\n",
+	             gGT->numPlyrCurrGame, poolScale, MEMPACK_GetFreeBytes());
+#endif
+
 	for (int i = 0; i < gGT->numPlyrCurrGame; i++)
 	{
-		data.PtrClipBuffer[i] = MEMPACK_AllocMem(MainDB_GetClipSize(gGT->levelID, gGT->numPlyrCurrGame) << 2);
+		int clipSize = MainDB_GetClipSize(gGT->levelID, gGT->numPlyrCurrGame) << 2;
+#if defined(CTR_NATIVE)
+		Platform_Log("[CTR Init] Allocating PtrClipBuffer[%d] size=%d...\n", i, clipSize);
+#endif
+		data.PtrClipBuffer[i] = MEMPACK_AllocMem(clipSize);
 	}
+#if defined(CTR_NATIVE)
+	Platform_Log("[CTR Init] MainInit_JitPoolsNew complete. Remaining freeMem=%d\n", MEMPACK_GetFreeBytes());
+#endif
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003b6d0-0x8003b934; CTR_NATIVE gates TT ghost model publication.
@@ -447,16 +459,20 @@ void MainInit_Drivers(struct GameTracker *gGT)
 	}
 
 	// spawn all AIs
+	b32 adhocArcade = false;
+#if defined(CTR_NATIVE)
+	adhocArcade = NativeAdhoc_IsActive() && (NativeAdhoc_GetGameMode() == NATIVE_ADHOC_GAME_MODE_ARCADE);
+#endif
 	if (
 #if defined(CTR_NATIVE)
-	        !NativeAdhoc_IsActive() &&
+	        (!NativeAdhoc_IsActive() || adhocArcade) &&
 #endif
 	        // exclude cutscene, relic, Time Trial,
 	        // Adventure Hub, Main Menu, Battle
 	        ((gameMode & 0x2c122020) == 0) &&
 
-	        // numPlyrCurrGame requires AIs
-	        (numPlyrCurrGame < 3) &&
+	        // numPlyrCurrGame requires AIs (native adhoc arcade supports 8 racers for any player count)
+	        (adhocArcade || (numPlyrCurrGame < 3)) &&
 	        // in Arcade or Adventure, or native Boss Fight
 	        (((gameMode & (ARCADE_MODE | ADVENTURE_MODE)) != 0
 	         || (gNativeBossFightMode != 0)
@@ -479,6 +495,11 @@ void MainInit_Drivers(struct GameTracker *gGT)
 		    (gGT->cup.cupID == 4))
 		{
 			numDrivers = numPlyrCurrGame + 4;
+		}
+
+		else if (adhocArcade)
+		{
+			numDrivers = 8;
 		}
 
 		else if (numPlyrCurrGame == 1)

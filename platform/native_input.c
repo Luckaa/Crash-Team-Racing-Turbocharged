@@ -1492,6 +1492,7 @@ void Platform_InputUpdate(void)
 		adhocPads[slot] = s_controllers[slot].snapshot;
 	}
 
+	NativeMpTest_ProcessPadSnapshots(adhocPads, NATIVE_INPUT_MAX_CONTROLLERS);
 	NativeAdhoc_ProcessPadSnapshots(adhocPads, NATIVE_INPUT_MAX_CONTROLLERS);
 	for (slot = 0; slot < NATIVE_INPUT_MAX_CONTROLLERS; slot++)
 	{
