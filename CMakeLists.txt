@@ -308,6 +308,8 @@ if(BUILD_TESTING AND NOT EMSCRIPTEN)
     target_include_directories(ctr_native_framerate_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
     target_compile_definitions(ctr_native_framerate_test PRIVATE CTR_NATIVE BUILD=926)
     add_test(NAME ctr_native_framerate COMMAND ctr_native_framerate_test)
+    ctr_native_add_test(banner tests/native_banner_test.c)
+    ctr_native_add_test(tires tests/native_tires_test.c)
     ctr_native_add_test(options tests/native_options_test.c)
     # Self-contained: it includes platform/native_font.c directly and stubs
     # the asset and renderer layer itself.

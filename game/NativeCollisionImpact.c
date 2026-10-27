@@ -20,10 +20,12 @@ u32 NativeCollision_Impact(struct Driver *d, struct Thread *t, struct Scratchpad
 			if (diffX != 0 || diffY != 0 || diffZ != 0)
 			{
 				double len = sqrt((diffX * diffX) + (diffY * diffY) + (diffZ * diffZ));
-
-				normal.x = (ldexp(diffX, 12) / len);
-				normal.y = (ldexp(diffY, 12) / len);
-				normal.z = (ldexp(diffZ, 12) / len);
+				if (len > 0.000001)
+				{
+					normal.x = (ldexp(diffX, 12) / len);
+					normal.y = (ldexp(diffY, 12) / len);
+					normal.z = (ldexp(diffZ, 12) / len);
+				}
 			}
 		}
 	}

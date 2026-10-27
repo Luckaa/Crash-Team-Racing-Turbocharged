@@ -549,7 +549,7 @@ static inline void RenderBucket_SplitInterpolateVertex(struct RenderBucketSplitV
                                                        const struct RenderBucketSplitVertex *to, int hasTexture)
 {
 	int denom = (int)to->z - (int)from->z;
-	int factor = RenderBucket_MipsSllSigned(from->splitDist, 16) / denom;
+	int factor = (denom != 0) ? (RenderBucket_MipsSllSigned(from->splitDist, 16) / denom) : 0;
 
 	// NOTE(aalhendi): Source-backs helper 0x8006b82c. Intersections live on the
 	// split plane; callers prefill dst->z, matching retail scratchpad 0xdc/0xf4.
@@ -573,7 +573,7 @@ static inline void RenderBucket_WaterSplitInterpolateVertex(struct RenderBucketD
                                                             int hasTexture, s16 splitLine)
 {
 	int denom = (s16)(to->xy >> 16) - (s16)(from->xy >> 16);
-	int factor = RenderBucket_MipsSllSigned(from->splitDist, 16) / denom;
+	int factor = (denom != 0) ? (RenderBucket_MipsSllSigned(from->splitDist, 16) / denom) : 0;
 	u32 colorHelper = (u32)(uintptr_t)ctx->inst->funcPtr[3];
 
 	// NOTE(aalhendi): ASM-verified helper 0x8006d4a4-0x8006d55c. This split
@@ -1837,13 +1837,13 @@ static struct RenderBucketSplitState RenderBucket_BuildSplitState(struct Instanc
 #endif
 
 	frameY = (s16)(RenderBucket_PackedFrameXY(inst, frame, nextFrame) >> 16);
-	baseY = RenderBucket_MipsAdd(inst->matrix.t[1], (frameY / matrixState->scratch76) >> 12);
+	baseY = RenderBucket_MipsAdd(inst->matrix.t[1], (matrixState->scratch76 != 0 ? (frameY / matrixState->scratch76) : 0) >> 12);
 	rawSplit = RenderBucket_MipsSub(inst->vertSplit, baseY);
 	matrixOr = matrixState->m0 | matrixState->m1 | matrixState->m2 | matrixState->m3 | matrixState->m4;
 
 	if (matrixOr == 0x1000)
 	{
-		splitLine = RenderBucket_MipsSll(RenderBucket_MipsSll(rawSplit, 12) / matrixState->scratch76, 2);
+		splitLine = RenderBucket_MipsSll((matrixState->scratch76 != 0 ? (RenderBucket_MipsSll(rawSplit, 12) / matrixState->scratch76) : 0), 2);
 		idpp->splitLine = (s16)splitLine;
 		split.scratch68 = splitLine;
 		*instFlags &= ~PUSHBUFFER_EXISTS;

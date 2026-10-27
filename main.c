@@ -391,6 +391,42 @@ void save_config(void)
 	}
 }
 
+#if defined(_WIN32)
+static LONG WINAPI Win32_CrashHandler(EXCEPTION_POINTERS *ep)
+{
+	DWORD code = ep->ExceptionRecord->ExceptionCode;
+	void *addr = ep->ExceptionRecord->ExceptionAddress;
+	Platform_Log("\n================ CRASH / UNHANDLED EXCEPTION ================\n");
+	Platform_Log("Exception Code: 0x%08X\n", (unsigned int)code);
+	HMODULE hMod = GetModuleHandleA(NULL);
+	uintptr_t rva = (uintptr_t)addr - (uintptr_t)hMod;
+	Platform_Log("Fault Address: %p (Base: %p, RVA: +0x%08X)\n", addr, (void *)hMod, (unsigned int)rva);
+	if (code == EXCEPTION_ACCESS_VIOLATION && ep->ExceptionRecord->NumberParameters >= 2)
+	{
+		ULONG_PTR accessType = ep->ExceptionRecord->ExceptionInformation[0];
+		ULONG_PTR targetAddr = ep->ExceptionRecord->ExceptionInformation[1];
+		Platform_Log("Access Violation: attempted to %s address %p\n",
+		             accessType == 0 ? "READ from" : (accessType == 1 ? "WRITE to" : "EXECUTE at"),
+		             (void *)targetAddr);
+	}
+#if defined(_M_IX86)
+	Platform_Log("Registers: EAX=%08X EBX=%08X ECX=%08X EDX=%08X ESI=%08X EDI=%08X EBP=%08X ESP=%08X EIP=%08X\n",
+	             ep->ContextRecord->Eax, ep->ContextRecord->Ebx, ep->ContextRecord->Ecx, ep->ContextRecord->Edx,
+	             ep->ContextRecord->Esi, ep->ContextRecord->Edi, ep->ContextRecord->Ebp, ep->ContextRecord->Esp,
+	             ep->ContextRecord->Eip);
+#elif defined(_M_X64)
+	Platform_Log("Registers: RIP=%p RSP=%p RAX=%p RBX=%p RCX=%p RDX=%p RSI=%p RDI=%p RBP=%p\n",
+	             (void *)ep->ContextRecord->Rip, (void *)ep->ContextRecord->Rsp, (void *)ep->ContextRecord->Rax,
+	             (void *)ep->ContextRecord->Rbx, (void *)ep->ContextRecord->Rcx, (void *)ep->ContextRecord->Rdx,
+	             (void *)ep->ContextRecord->Rsi, (void *)ep->ContextRecord->Rdi, (void *)ep->ContextRecord->Rbp);
+#endif
+	Platform_Log("============================================================\n");
+	fflush(stdout);
+	fflush(stderr);
+	return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
+
 #ifdef __vita__
 #include <pthread.h>
 void *real_main(void *argv);
@@ -426,6 +462,9 @@ void *real_main(void *_argv)
 #else
 int main(int argc, char *argv[])
 {
+#endif
+#if defined(_WIN32)
+	SetUnhandledExceptionFilter(Win32_CrashHandler);
 #endif
 	for (int argIndex = 1; argIndex < argc; argIndex++)
 	{

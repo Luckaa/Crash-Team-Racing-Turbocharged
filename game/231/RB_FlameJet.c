@@ -318,6 +318,11 @@ void RB_FlameJet_ThTick(struct Thread *t)
 
 	struct GameTracker *gGT = sdata->gGT;
 
+	if (t == NULL || t->object == NULL || t->inst == NULL)
+	{
+		return;
+	}
+
 	fjInst = t->inst;
 	fjObj = (struct FlameJet *)t->object;
 

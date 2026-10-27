@@ -171,6 +171,11 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 		for (psVar12 = gGT->threadBuckets[0].thread; psVar12 != 0; psVar12 = psVar12->siblingThread)
 		{
 			psVar9 = (struct Driver *)psVar12->object;
+			if (psVar9 == NULL)
+			{
+				pushBuffer = pushBuffer + 1;
+				continue;
+			}
 
 			if (psVar9->clockSend)
 			{
@@ -308,6 +313,10 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 		for (psVar12 = gGT->threadBuckets[0].thread; psVar12 != 0; psVar12 = psVar12->siblingThread)
 		{
 			struct Driver *currentDriver = psVar12->object;
+			if (currentDriver == NULL)
+			{
+				continue;
+			}
 
 			if (currentDriver->driverID == 0)
 			{
@@ -350,7 +359,10 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 				{
 					for (psVar12 = gGT->threadBuckets[iVar4].thread; psVar12 != 0; psVar12 = psVar12->siblingThread)
 					{
-						VehPickupItem_ShootOnCirclePress((struct Driver *)psVar12->object);
+						if (psVar12->object != NULL)
+						{
+							VehPickupItem_ShootOnCirclePress((struct Driver *)psVar12->object);
+						}
 					}
 
 					// run all driver funcPtrs,
@@ -368,6 +380,10 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 							}
 
 							psVar9 = (struct Driver *)psVar12->object;
+							if (psVar9 == NULL)
+							{
+								continue;
+							}
 
 							pcVar5 = psVar9->funcPtrs[iVar11];
 

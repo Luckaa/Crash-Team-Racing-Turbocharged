@@ -351,7 +351,11 @@ static u32 PlaySound3D_CalculateLR(s32 *dir)
 static u32 PlaySound3D_BuildFlags(struct GameTracker *gGT, int cameraIndex, u32 distance, u32 lr)
 {
 	u32 volume;
-	u32 echo = (u32)gGT->cameraDC[cameraIndex].ptrQuadBlock->quadFlags & QUADBLOCK_FLAG_ENGINE_ECHO;
+	u32 echo = 0;
+	if (gGT && (cameraIndex >= 0) && (cameraIndex < 4) && gGT->cameraDC[cameraIndex].ptrQuadBlock)
+	{
+		echo = (u32)gGT->cameraDC[cameraIndex].ptrQuadBlock->quadFlags & QUADBLOCK_FLAG_ENGINE_ECHO;
+	}
 
 	if (distance < 301)
 	{
@@ -421,7 +425,11 @@ void PlaySound3D(u32 soundID, struct Instance *inst)
 static u32 PlaySound3D_Flags_BuildFlags(struct GameTracker *gGT, int cameraIndex, u32 distance, u32 lr)
 {
 	u32 volume;
-	u32 echo = (u32)gGT->cameraDC[cameraIndex].ptrQuadBlock->quadFlags & QUADBLOCK_FLAG_ENGINE_ECHO;
+	u32 echo = 0;
+	if (gGT && (cameraIndex >= 0) && (cameraIndex < 4) && gGT->cameraDC[cameraIndex].ptrQuadBlock)
+	{
+		echo = (u32)gGT->cameraDC[cameraIndex].ptrQuadBlock->quadFlags & QUADBLOCK_FLAG_ENGINE_ECHO;
+	}
 
 	if (distance < 301)
 	{

@@ -89,6 +89,42 @@ def create_package(custom_host_ip=None):
         encoding="utf-8"
     )
 
+    # 5C. Create CONECTAR_REDE_LOCAL.bat inside standalone folder (LAN / Wi-Fi)
+    lan_bat = STANDALONE_DIR / "CONECTAR_REDE_LOCAL.bat"
+    lan_bat.write_text(
+        "@echo off\r\n"
+        "title Crash Team Racing - Turbocharged (Rede Local / Wi-Fi)\r\n"
+        "cd /d \"%~dp0\"\r\n"
+        "echo 192.168.100.8 > multiplayer_ip.txt\r\n"
+        "echo ========================================================\r\n"
+        "echo   CONECTANDO VIA REDE LOCAL (MESMO WI-FI OU CABO)\r\n"
+        "echo   IP do Host: 192.168.100.8\r\n"
+        "echo ========================================================\r\n"
+        "echo.\r\n"
+        "echo No menu principal: MULTIPLAYER -^> BUSCAR SALA.\r\n"
+        "echo.\r\n"
+        "start \"\" \"Crash Team Racing - Turbocharged.exe\"\r\n",
+        encoding="utf-8"
+    )
+
+    # 5D. Create CONECTAR_RADMIN_VPN.bat inside standalone folder
+    vpn_bat = STANDALONE_DIR / "CONECTAR_RADMIN_VPN.bat"
+    vpn_bat.write_text(
+        "@echo off\r\n"
+        "title Crash Team Racing - Turbocharged (Radmin VPN)\r\n"
+        "cd /d \"%~dp0\"\r\n"
+        "echo 26.235.216.50 > multiplayer_ip.txt\r\n"
+        "echo ========================================================\r\n"
+        "echo   CONECTANDO VIA RADMIN VPN\r\n"
+        "echo   IP do Host: 26.235.216.50\r\n"
+        "echo ========================================================\r\n"
+        "echo.\r\n"
+        "echo No menu principal: MULTIPLAYER -^> BUSCAR SALA.\r\n"
+        "echo.\r\n"
+        "start \"\" \"Crash Team Racing - Turbocharged.exe\"\r\n",
+        encoding="utf-8"
+    )
+
     # 6. Create CONFIGURAR_IP.bat inside standalone folder
     config_ip_bat = STANDALONE_DIR / "CONFIGURAR_IP.bat"
     config_ip_bat.write_text(

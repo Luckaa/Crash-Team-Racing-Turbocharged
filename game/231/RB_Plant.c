@@ -31,6 +31,11 @@ void RB_Plant_ThTick_Eat(struct Thread *t)
 	struct Instance *plantInst;
 	struct Plant *plantObj;
 
+	if (t == NULL || t->object == NULL || t->inst == NULL)
+	{
+		return;
+	}
+
 	plantInst = t->inst;
 	plantObj = (struct Plant *)t->object;
 
@@ -361,6 +366,11 @@ void RB_Plant_ThTick_Rest(struct Thread *t)
 {
 	struct Instance *plantInst;
 	struct Plant *plantObj;
+
+	if (t == NULL || t->object == NULL || t->inst == NULL)
+	{
+		return;
+	}
 
 	plantInst = t->inst;
 	plantObj = (struct Plant *)t->object;

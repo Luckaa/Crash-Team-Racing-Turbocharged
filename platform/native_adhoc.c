@@ -54,7 +54,7 @@ typedef struct sockaddr_in NativeNetAddr;
 #endif
 
 #define NATIVE_ADHOC_MAGIC 0x41485443u
-#define NATIVE_ADHOC_VERSION 12u
+#define NATIVE_ADHOC_VERSION 13u
 #define NATIVE_ADHOC_PORT 31847
 #define NATIVE_ADHOC_PDP_BUFSIZE 0x8000
 #define NATIVE_ADHOC_NET_MEMORY_SIZE (1024 * 1024)
@@ -65,8 +65,8 @@ typedef struct sockaddr_in NativeNetAddr;
 #define NATIVE_ADHOC_PEER_TIMEOUT_US 15000000u
 #define NATIVE_ADHOC_INPUT_RING_SIZE 64u
 #define NATIVE_ADHOC_INPUT_RING_MASK (NATIVE_ADHOC_INPUT_RING_SIZE - 1u)
-#define NATIVE_ADHOC_INPUT_DELAY 2u
-#define NATIVE_ADHOC_INPUT_REDUNDANCY 6u
+#define NATIVE_ADHOC_INPUT_DELAY 4u
+#define NATIVE_ADHOC_INPUT_REDUNDANCY 8u
 #define NATIVE_ADHOC_HASH_INTERVAL 30u
 #define NATIVE_ADHOC_HASH_HISTORY 8u
 #define NATIVE_ADHOC_SNAPSHOT_CHUNK_SIZE 1024u
@@ -82,6 +82,10 @@ CTR_STATIC_ASSERT((NATIVE_ADHOC_INPUT_RING_SIZE & NATIVE_ADHOC_INPUT_RING_MASK) 
 extern int cfg_language;
 extern int gNativeMirrorModeEnabled;
 extern int gNativeForce30Fps;
+extern int gNativeSmoothedPhysicsEnabled;
+extern int gNativeSmoothedAIEnabled;
+extern int gNativeSmoothedCollisionEnabled;
+extern int gNativeSmoothedSteeringEnabled;
 
 enum NativeAdhocPacketType
 {
@@ -184,6 +188,10 @@ struct NativeAdhocSessionPacket
 	u32 advRng0;
 	u32 advRng1;
 	u32 psxRandSeed;
+	u8 smoothedPhysics;
+	u8 smoothedAI;
+	u8 smoothedCollision;
+	u8 smoothedSteering;
 };
 
 struct NativeAdhocReadyPacket
@@ -402,6 +410,7 @@ struct NativeAdhocContext
 	struct NativeAdhocInputSlot inputs[4][NATIVE_ADHOC_INPUT_RING_SIZE];
 	u32 latestLocalInputFrame;
 	int latestLocalInputValid;
+	u32 extrapolatedFrames[4];
 
 	struct NativeAdhocHashSlot hashes[NATIVE_ADHOC_HASH_HISTORY];
 	u32 nextHashSlot;
@@ -741,6 +750,7 @@ static void NativeAdhoc_ResetLockstep(u32 frame)
 
 	NativeAdhoc_ClearInputRing();
 	s_nativeAdhoc.simulationFrame = frame;
+	memset(s_nativeAdhoc.extrapolatedFrames, 0, sizeof(s_nativeAdhoc.extrapolatedFrames));
 	NativeAdhoc_MakeNeutralPad(&neutral);
 	for (u32 i = 0; i < NATIVE_ADHOC_INPUT_DELAY; i++)
 	{
@@ -1665,27 +1675,21 @@ static u32 NativeAdhoc_HashThreadBucket(u32 crc, const struct GameTracker *gGT, 
 static u32 NativeAdhoc_GameplayHash(const struct GameTracker *gGT)
 {
 	u32 crc = 0xffffffffu;
-	local_persist const int gameplayBuckets[] = {PLAYER, ROBOT, MINE, TRACKING, OTHER};
 
 	crc = NativeAdhoc_Crc32Update(crc, &gGT->levelID, sizeof(gGT->levelID));
 	u32 gameplayMode1 = gGT->gameMode1 & ~(AKU_SONG | UKA_SONG);
 	crc = NativeAdhoc_Crc32Update(crc, &gameplayMode1, sizeof(gameplayMode1));
 	crc = NativeAdhoc_Crc32Update(crc, &gGT->gameMode2, sizeof(gGT->gameMode2));
-	crc = NativeAdhoc_Crc32Update(crc, &gGT->timer, sizeof(gGT->timer));
 	crc = NativeAdhoc_Crc32Update(crc, &gGT->trafficLightsTimer, sizeof(gGT->trafficLightsTimer));
 	crc = NativeAdhoc_Crc32Update(crc, &gGT->elapsedEventTime, sizeof(gGT->elapsedEventTime));
 	crc = NativeAdhoc_Crc32Update(crc, &gGT->frozenTimeRemaining, sizeof(gGT->frozenTimeRemaining));
-	crc = NativeAdhoc_Crc32Update(crc, &gGT->deadcoed_struct, sizeof(gGT->deadcoed_struct));
-	crc = NativeAdhoc_Crc32Update(crc, &sdata->randomNumber, sizeof(sdata->randomNumber));
-	crc = NativeAdhoc_Crc32Update(crc, &sdata->advRng, sizeof(sdata->advRng));
+	// Note: gGT->timer (local session clock), sdata->randomNumber, sdata->advRng, gGT->deadcoed_struct
+	// and thread buckets (which contain camera-relative instance matrices) are intentionally excluded.
+	// Only pure physical driver simulation states are hashed.
 	crc = NativeAdhoc_Crc32Update(crc, &sdata->numPlayersFinishedRace, sizeof(sdata->numPlayersFinishedRace));
 	for (int i = 0; i < 8; i++)
 	{
 		crc = NativeAdhoc_HashDriver(crc, gGT->drivers[i]);
-	}
-	for (u32 i = 0; i < len(gameplayBuckets); i++)
-	{
-		crc = NativeAdhoc_HashThreadBucket(crc, gGT, gameplayBuckets[i]);
 	}
 	return crc ^ 0xffffffffu;
 }
@@ -1809,6 +1813,10 @@ static void NativeAdhoc_FillSession(struct NativeAdhocSessionPacket *packet, con
 	packet->numLaps = gGT->numLaps;
 	packet->language = cfg_language;
 	packet->mirrorMode = gNativeMirrorModeEnabled != 0;
+	packet->smoothedPhysics = (u8)(gNativeSmoothedPhysicsEnabled != 0);
+	packet->smoothedAI = (u8)(gNativeSmoothedAIEnabled != 0);
+	packet->smoothedCollision = (u8)(gNativeSmoothedCollisionEnabled != 0);
+	packet->smoothedSteering = (u8)(gNativeSmoothedSteeringEnabled != 0);
 	memcpy(packet->characterIDs, data.characterIDs, sizeof(packet->characterIDs));
 	if (s_nativeAdhoc.raceLoadPrepared)
 	{
@@ -1875,6 +1883,10 @@ static void NativeAdhoc_ApplySessionConfig(const struct NativeAdhocSessionPacket
 
 	memcpy(data.characterIDs, packet->characterIDs, sizeof(packet->characterIDs));
 	gNativeMirrorModeEnabled = packet->mirrorMode != 0;
+	gNativeSmoothedPhysicsEnabled = packet->smoothedPhysics != 0;
+	gNativeSmoothedAIEnabled = packet->smoothedAI != 0;
+	gNativeSmoothedCollisionEnabled = packet->smoothedCollision != 0;
+	gNativeSmoothedSteeringEnabled = packet->smoothedSteering != 0;
 	NativeAdhoc_ApplySessionSeeds(packet, gGT);
 }
 
@@ -2758,7 +2770,8 @@ static void NativeAdhoc_ReceivePackets(void)
 			struct NativeAdhocDesyncPacket *packet = (struct NativeAdhocDesyncPacket *)buffer;
 			if ((s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST) && NativeAdhoc_PacketSessionMatches(packet->sessionId))
 			{
-				s_nativeAdhoc.resyncRequested = 1;
+				Platform_Log("[CTR Adhoc] Peer desync reported at frame %u (host=0x%08x client=0x%08x) - skipping heavy resync to preserve race flow\n",
+				             packet->frame, packet->hostHash, packet->clientHash);
 			}
 			continue;
 		}
@@ -2980,17 +2993,8 @@ static void NativeAdhoc_PumpConnected(void)
 		}
 		if (allPeersReady)
 		{
-			Platform_Log("[CTR Adhoc] Host: all %d peers ready! Calling NativeAdhoc_BeginSnapshot...\n", s_nativeAdhoc.clientCount);
-			if (!NativeAdhoc_BeginSnapshot(1, 0))
-			{
-				Platform_Log("[CTR Adhoc] failed to create initial gameplay snapshot\n");
-				s_nativeAdhoc.status = NATIVE_ADHOC_STATUS_ERROR;
-			}
-			else
-			{
-				Platform_Log("[CTR Adhoc] Host: snapshot started! Size=%u bytes, chunks=%u\n",
-				             s_nativeAdhoc.txSnapshotSize, s_nativeAdhoc.txSnapshotChunkCount);
-			}
+			Platform_Log("[CTR Adhoc] Host: all %d peers ready! Starting race directly...\n", s_nativeAdhoc.clientCount);
+			NativeAdhoc_BeginDirectStart(0);
 		}
 	}
 
@@ -3490,8 +3494,23 @@ void NativeAdhoc_ProcessPadSnapshots(struct PlatformInputPadSnapshot *pads, int 
 			int havePi = NativeAdhoc_GetInput(i, s_nativeAdhoc.simulationFrame, &pi);
 			if (!havePi)
 			{
-				NativeAdhoc_MakeNeutralPad(&pi);
-				allPlayersHaveInput = 0;
+				if ((s_nativeAdhoc.simulationFrame > 0) && (s_nativeAdhoc.extrapolatedFrames[i] < 3u) &&
+				    NativeAdhoc_GetInput(i, s_nativeAdhoc.simulationFrame - 1u, &pi))
+				{
+					// Extrapolate previous frame's pad for up to 3 frames during Wi-Fi jitter spikes
+					NativeAdhoc_StoreInput(i, s_nativeAdhoc.simulationFrame, &pi);
+					s_nativeAdhoc.extrapolatedFrames[i]++;
+					havePi = 1;
+				}
+				else
+				{
+					NativeAdhoc_MakeNeutralPad(&pi);
+					allPlayersHaveInput = 0;
+				}
+			}
+			else
+			{
+				s_nativeAdhoc.extrapolatedFrames[i] = 0;
 			}
 			if (i < count)
 			{
@@ -3600,6 +3619,57 @@ static int NativeAdhoc_ApplyPendingSnapshot(void)
 		// the first post-restore frame instead of consuming host cache pointers.
 		MainInit_VisMem(gGT);
 		memset(gGT->LevRenderLists, 0, sizeof(gGT->LevRenderLists));
+		for (int i = 0; i < 4; i++)
+		{
+			// Only clear render-side visibility caches. Simulation camera state
+			// (transitionFrame, transitionBlend, trackPathProgress, cameraMode,
+			// flags) MUST stay exactly as restored from the host snapshot:
+			// the fly-in camera clears START_OF_RACE, which starts the traffic
+			// lights. Resetting it here (CAM_StartOfRace) shifted the client's
+			// countdown and caused a deterministic desync + resync loop.
+			struct CameraDC *cDC = &gGT->cameraDC[i];
+			cDC->visLeafSrc = NULL;
+			cDC->visFaceSrc = NULL;
+			cDC->visInstSrc = NULL;
+			cDC->visOVertSrc = NULL;
+			cDC->visSCVertSrc = NULL;
+			cDC->driverToFollow = (i < gGT->numPlyrCurrGame) ? gGT->drivers[i] : NULL;
+			cDC->pushBuffer = &gGT->pushBuffer[i];
+		}
+		NativeDrawLevel_InvalidateStaticCache();
+
+		// Ensure all human player driver threads in threadBuckets[0] are valid and properly linked
+		if ((gGT->numPlyrCurrGame >= 1) && (gGT->numPlyrCurrGame <= 4))
+		{
+			struct Thread *firstTh = NULL;
+			struct Thread *prevTh = NULL;
+			for (int p = 0; p < gGT->numPlyrCurrGame; p++)
+			{
+				struct Driver *d = gGT->drivers[p];
+				if ((d != NULL) && (d->instSelf != NULL) && (d->instSelf->thread != NULL))
+				{
+					struct Thread *th = d->instSelf->thread;
+					th->object = d;
+					if (firstTh == NULL)
+					{
+						firstTh = th;
+					}
+					if (prevTh != NULL)
+					{
+						prevTh->siblingThread = th;
+					}
+					prevTh = th;
+				}
+			}
+			if (prevTh != NULL)
+			{
+				prevTh->siblingThread = NULL;
+			}
+			if (firstTh != NULL)
+			{
+				gGT->threadBuckets[0].thread = firstTh;
+			}
+		}
 	}
 	NativeAdhoc_ResetLockstep(s_nativeAdhoc.rxSnapshotFrame);
 	s_nativeAdhoc.lastRestoredSnapshotId = s_nativeAdhoc.rxSnapshotId;

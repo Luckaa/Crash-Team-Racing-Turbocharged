@@ -381,6 +381,10 @@ void Channel_ParseSongToChannels()
 		for (seqEntry = &song->CseqSequences[0]; seqEntry < &song->CseqSequences[song->numSequences]; seqEntry++)
 		{
 			seq = seqEntry[0];
+			if ((seq == NULL) || (seq < &sdata->songSeq[0]) || (seq >= &sdata->songSeq[NUM_SFX_CHANNELS]))
+			{
+				continue;
+			}
 
 			volCurr = seq->vol_Curr;
 			volNew = seq->vol_New;

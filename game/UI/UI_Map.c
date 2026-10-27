@@ -229,6 +229,8 @@ void UI_Map_GetIconPos(struct UIMap *map, int *posX, int *posY)
 
 	worldRangeX = map->worldEndX - map->worldStartX;
 	worldRangeY = map->worldEndY - map->worldStartY;
+	if (worldRangeX == 0) worldRangeX = 1;
+	if (worldRangeY == 0) worldRangeY = 1;
 
 	if (mode == UI_MAP_MODE_0_DEGREES)
 	{

@@ -742,6 +742,7 @@ internal void NativeCheckpoint_RelocateCameraDC(const struct NativeCheckpointHea
                                                 struct CameraDC *camera)
 {
 	local_persist const struct NativeCheckpointFieldRelocation fields[] = {
+	    NATIVE_CHECKPOINT_FIELD_PTR(struct CameraDC, ptrQuadBlock),
 	    NATIVE_CHECKPOINT_FIELD_PTR(struct CameraDC, visLeafSrc),   NATIVE_CHECKPOINT_FIELD_PTR(struct CameraDC, visFaceSrc),
 	    NATIVE_CHECKPOINT_FIELD_PTR(struct CameraDC, visInstSrc),   NATIVE_CHECKPOINT_FIELD_PTR(struct CameraDC, visOVertSrc),
 	    NATIVE_CHECKPOINT_FIELD_PTR(struct CameraDC, visSCVertSrc), NATIVE_CHECKPOINT_FIELD_PTR(struct CameraDC, driverToFollow),
@@ -1209,80 +1210,100 @@ internal void NativeCheckpoint_RelocateThreadObject(const struct NativeCheckpoin
 internal void NativeCheckpoint_RelocateThreadsInPool(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader,
                                                      struct JitPool *pool)
 {
-	struct Item *item;
-	s32 guard = 0;
+	uintptr_t currSlot;
+	u32 itemStep;
 
-	if (pool == NULL)
+	if ((pool == NULL) || (pool->ptrPoolData == NULL) || (pool->maxItems <= 0) || (pool->itemSize <= 0))
 	{
 		return;
 	}
 
-	item = pool->taken.first;
-	while ((item != NULL) && (guard++ < pool->maxItems))
+	itemStep = ((u32)pool->itemSize >> 2) << 2;
+	if (itemStep == 0)
 	{
-		struct Item *next = item->next;
-		NativeCheckpoint_RelocateThread(oldHeader, liveHeader, (struct Thread *)item);
-		item = next;
+		return;
+	}
+
+	currSlot = (uintptr_t)pool->ptrPoolData;
+	for (int itemIndex = 0; itemIndex < pool->maxItems; itemIndex++)
+	{
+		NativeCheckpoint_RelocateThread(oldHeader, liveHeader, (struct Thread *)currSlot);
+		currSlot += itemStep;
 	}
 }
 
 internal void NativeCheckpoint_RelocateThreadObjectsInPool(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader,
                                                            struct JitPool *pool)
 {
-	struct Item *item;
-	s32 guard = 0;
+	uintptr_t currSlot;
+	u32 itemStep;
 
-	if (pool == NULL)
+	if ((pool == NULL) || (pool->ptrPoolData == NULL) || (pool->maxItems <= 0) || (pool->itemSize <= 0))
 	{
 		return;
 	}
 
-	item = pool->taken.first;
-	while ((item != NULL) && (guard++ < pool->maxItems))
+	itemStep = ((u32)pool->itemSize >> 2) << 2;
+	if (itemStep == 0)
 	{
-		struct Item *next = item->next;
-		NativeCheckpoint_RelocateThreadObject(oldHeader, liveHeader, (struct Thread *)item);
-		item = next;
+		return;
+	}
+
+	currSlot = (uintptr_t)pool->ptrPoolData;
+	for (int itemIndex = 0; itemIndex < pool->maxItems; itemIndex++)
+	{
+		NativeCheckpoint_RelocateThreadObject(oldHeader, liveHeader, (struct Thread *)currSlot);
+		currSlot += itemStep;
 	}
 }
 
 internal void NativeCheckpoint_RelocateInstancesInPool(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader,
                                                        struct JitPool *pool, s32 numPlayers)
 {
-	struct Item *item;
-	s32 guard = 0;
+	uintptr_t currSlot;
+	u32 itemStep;
 
-	if (pool == NULL)
+	if ((pool == NULL) || (pool->ptrPoolData == NULL) || (pool->maxItems <= 0) || (pool->itemSize <= 0))
 	{
 		return;
 	}
 
-	item = pool->taken.first;
-	while ((item != NULL) && (guard++ < pool->maxItems))
+	itemStep = ((u32)pool->itemSize >> 2) << 2;
+	if (itemStep == 0)
 	{
-		struct Item *next = item->next;
-		NativeCheckpoint_RelocateInstance(oldHeader, liveHeader, (struct Instance *)item, numPlayers);
-		item = next;
+		return;
+	}
+
+	currSlot = (uintptr_t)pool->ptrPoolData;
+	for (int itemIndex = 0; itemIndex < pool->maxItems; itemIndex++)
+	{
+		NativeCheckpoint_RelocateInstance(oldHeader, liveHeader, (struct Instance *)currSlot, numPlayers);
+		currSlot += itemStep;
 	}
 }
 
 internal void NativeCheckpoint_RelocateRainPool(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader,
                                                 struct JitPool *pool)
 {
-	struct Item *item;
-	s32 guard = 0;
+	uintptr_t currSlot;
+	u32 itemStep;
 
-	if (pool == NULL)
+	if ((pool == NULL) || (pool->ptrPoolData == NULL) || (pool->maxItems <= 0) || (pool->itemSize <= 0))
 	{
 		return;
 	}
 
-	item = pool->taken.first;
-	while ((item != NULL) && (guard++ < pool->maxItems))
+	itemStep = ((u32)pool->itemSize >> 2) << 2;
+	if (itemStep == 0)
 	{
-		struct Item *next = item->next;
-		NativeCheckpoint_RelocateRainLocal(oldHeader, liveHeader, (struct RainLocal *)item);
-		item = next;
+		return;
+	}
+
+	currSlot = (uintptr_t)pool->ptrPoolData;
+	for (int itemIndex = 0; itemIndex < pool->maxItems; itemIndex++)
+	{
+		NativeCheckpoint_RelocateRainLocal(oldHeader, liveHeader, (struct RainLocal *)currSlot);
+		currSlot += itemStep;
 	}
 }
 
@@ -1471,19 +1492,9 @@ internal void NativeCheckpoint_RelocateGhostRecording(const struct NativeCheckpo
 
 internal void NativeCheckpoint_RelocateHowlLists(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader)
 {
-	NativeCheckpoint_RelocateLinkedList(oldHeader, liveHeader, &sdata_static.channelTaken);
-	NativeCheckpoint_RelocateLinkedList(oldHeader, liveHeader, &sdata_static.channelFree);
-	for (u32 i = 0; i < len(sdata_static.channelStatsPrev); i++)
-	{
-		NativeCheckpoint_RelocateItemLinks(oldHeader, liveHeader, &sdata_static.channelStatsPrev[i].item);
-	}
-
-	NativeCheckpoint_RelocateLinkedList(oldHeader, liveHeader, &sdata_static.Voiceline1);
-	NativeCheckpoint_RelocateLinkedList(oldHeader, liveHeader, &sdata_static.Voiceline2);
-	for (u32 i = 0; i < len(sdata_static.voicelinePool); i++)
-	{
-		NativeCheckpoint_RelocateItemLinks(oldHeader, liveHeader, &sdata_static.voicelinePool[i].item);
-	}
+	(void)oldHeader;
+	(void)liveHeader;
+	// Audio subsystem lists and structures are preserved locally across checkpoints
 }
 
 internal void NativeCheckpoint_RelocateSDataPointers(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader)
@@ -2016,6 +2027,43 @@ internal int NativeCheckpoint_RestoreRegion(u32 kind, const void *src, int srcSi
 	if (dst == NULL)
 	{
 		return 0;
+	}
+
+	if (kind == NATIVE_CHECKPOINT_REGION_SDATA)
+	{
+		struct SongSeq saved_songSeq[NUM_SFX_CHANNELS];
+		struct LinkedList saved_channelTaken;
+		struct LinkedList saved_channelFree;
+		struct Song saved_songPool[2];
+		struct ChannelStats saved_channelStatsPrev[NUM_SFX_CHANNELS];
+		struct LinkedList saved_Voiceline1;
+		struct LinkedList saved_Voiceline2;
+		struct VoicelineItem saved_voicelinePool[8];
+		b32 saved_cseqBoolPlay = sdata_static.cseqBoolPlay;
+		s32 saved_cseqHighestIndex = sdata_static.cseqHighestIndex;
+
+		memcpy(saved_songSeq, sdata_static.songSeq, sizeof(saved_songSeq));
+		saved_channelTaken = sdata_static.channelTaken;
+		saved_channelFree = sdata_static.channelFree;
+		memcpy(saved_songPool, sdata_static.songPool, sizeof(saved_songPool));
+		memcpy(saved_channelStatsPrev, sdata_static.channelStatsPrev, sizeof(saved_channelStatsPrev));
+		saved_Voiceline1 = sdata_static.Voiceline1;
+		saved_Voiceline2 = sdata_static.Voiceline2;
+		memcpy(saved_voicelinePool, sdata_static.voicelinePool, sizeof(saved_voicelinePool));
+
+		memcpy(dst, src, (size_t)srcSize);
+
+		memcpy(sdata_static.songSeq, saved_songSeq, sizeof(saved_songSeq));
+		sdata_static.channelTaken = saved_channelTaken;
+		sdata_static.channelFree = saved_channelFree;
+		memcpy(sdata_static.songPool, saved_songPool, sizeof(saved_songPool));
+		memcpy(sdata_static.channelStatsPrev, saved_channelStatsPrev, sizeof(saved_channelStatsPrev));
+		sdata_static.Voiceline1 = saved_Voiceline1;
+		sdata_static.Voiceline2 = saved_Voiceline2;
+		memcpy(sdata_static.voicelinePool, saved_voicelinePool, sizeof(saved_voicelinePool));
+		sdata_static.cseqBoolPlay = saved_cseqBoolPlay;
+		sdata_static.cseqHighestIndex = saved_cseqHighestIndex;
+		return 1;
 	}
 
 	memcpy(dst, src, (size_t)srcSize);

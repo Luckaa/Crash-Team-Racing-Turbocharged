@@ -84,6 +84,11 @@ int RB_Banner_Animate_Init(struct ModelHeader *mh)
 	u8 *vertex;
 	int count = 0;
 
+	if (mh == NULL || mh->ptrCommandList == 0 || mh->ptrFrameData == NULL)
+	{
+		return 0;
+	}
+
 	if ((s16)(*(u16 *)(void *)mh->ptrCommandList) < 0x40)
 	{
 		return 0;
@@ -162,6 +167,11 @@ int RB_Banner_Animate_Init(struct ModelHeader *mh)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b56c4-0x800b57b4.
 void RB_Banner_Animate_Play(struct ModelHeader *mh, s16 numVertices)
 {
+	if (mh == NULL || mh->ptrColors == NULL || mh->ptrFrameData == NULL)
+	{
+		return;
+	}
+
 	u32 *colors = mh->ptrColors;
 	u32 firstColor = colors[0];
 	u8 *vertex;
@@ -200,6 +210,11 @@ void RB_Banner_Animate_Play(struct ModelHeader *mh, s16 numVertices)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b57b4-0x800b57f8.
 void RB_Banner_ThTick(struct Thread *t)
 {
+	if (t == NULL || t->object == NULL)
+	{
+		return;
+	}
+
 	struct StartBanner *banner = t->object;
 
 	if (banner->numVertices != 0)
@@ -210,7 +225,20 @@ void RB_Banner_ThTick(struct Thread *t)
 			return;
 		}
 #endif
-		RB_Banner_Animate_Play(t->inst->model->headers, banner->numVertices);
+		struct Instance *inst = t->inst;
+		struct Model *model = (inst != NULL) ? inst->model : NULL;
+		if (model == NULL && sdata != NULL && sdata->gGT != NULL)
+		{
+			model = sdata->gGT->modelPtr[STATIC_STARTBANNERWAVE];
+			if (inst != NULL)
+			{
+				inst->model = model;
+			}
+		}
+		if (model != NULL && model->headers != NULL)
+		{
+			RB_Banner_Animate_Play(model->headers, banner->numVertices);
+		}
 	}
 }
 
@@ -247,14 +275,14 @@ void RB_Banner_LInB(struct Instance *inst)
 	banner->numVertices = 0;
 
 	model = gGT->modelPtr[STATIC_STARTBANNERWAVE];
-	if (model == NULL)
+	if (model == NULL || model->headers == NULL)
 	{
 		return;
 	}
 
 	inst->model = model;
 	banner->numVertices = RB_Banner_Animate_Init(model->headers);
-	if (banner->numVertices == 0)
+	if (banner->numVertices == 0 || model->headers->ptrColors == NULL)
 	{
 		return;
 	}

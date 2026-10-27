@@ -335,7 +335,8 @@ void OptionsMenu_TestSound(int newRow, int newBoolPlay)
 	if ((sdata->OptionSlider_BoolPlay != 0) && (sdata->OptionSlider_Index == 2))
 	{
 		// OG game does this, instead of gGT->drivers[0]?
-		int driverID = sdata->gGT->cameraDC[0].driverToFollow->driverID;
+		struct Driver *follow = sdata->gGT->cameraDC[0].driverToFollow;
+		int driverID = (follow != NULL) ? follow->driverID : 0;
 
 		int characterID = data.characterIDs[driverID];
 

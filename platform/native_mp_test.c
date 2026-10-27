@@ -300,16 +300,26 @@ void NativeMpTest_Update(void)
 		s_raceFrameCount++;
 		if ((s_raceFrameCount % 30) == 0)
 		{
-			Platform_Log("[CTR Test] %s racing... frame %d/%d (simFrame=%u)\n",
+			Platform_Log("[CTR Test] %s racing... frame %d/%d (simFrame=%u, lightsTimer=%d)\n",
 			             s_isHost ? "HOST" : "CLIENT", s_raceFrameCount, s_testMaxRaceFrames,
-			             NativeAdhoc_GetSimulationFrame());
+			             NativeAdhoc_GetSimulationFrame(), sdata->gGT->trafficLightsTimer);
 		}
 
-		if (s_raceFrameCount >= s_testMaxRaceFrames)
+		if (sdata->gGT->trafficLightsTimer <= 0 && sdata->trafficLightsTimer_prevFrame > 0)
+		{
+			Platform_Log("[CTR Test] %s: >>> TRAFFIC LIGHT GREEN REACHED! <<< (frame=%d)\n",
+			             s_isHost ? "HOST" : "CLIENT", s_raceFrameCount);
+		}
+
+		b32 raceFinished = ((sdata->gGT->gameMode1 & END_OF_RACE) != 0);
+
+		if ((s_testMaxRaceFrames > 0 && s_raceFrameCount >= s_testMaxRaceFrames) ||
+		    (s_testMaxRaceFrames <= 0 && raceFinished) ||
+		    (raceFinished && s_raceFrameCount >= 180))
 		{
 			Platform_Log("[CTR Test] ========================================\n");
-			Platform_Log("[CTR Test] TEST PASSED! %s completed %d race frames successfully!\n",
-			             s_isHost ? "HOST" : "CLIENT", s_raceFrameCount);
+			Platform_Log("[CTR Test] TEST PASSED! %s completed race successfully! (frames=%d, finished=%d)\n",
+			             s_isHost ? "HOST" : "CLIENT", s_raceFrameCount, (int)raceFinished);
 			Platform_Log("[CTR Test] ========================================\n");
 			Platform_LogFlush();
 			s_testState = MP_TEST_PASSED;

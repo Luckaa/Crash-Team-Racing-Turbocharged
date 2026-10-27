@@ -20,7 +20,7 @@ void Seal_CheckColl(struct Instance *sealInst, struct Thread *sealTh, int damage
 	hitInst = (struct Instance *)LinkedCollide_Radius(sealInst, sealTh, gGT->threadBuckets[PLAYER].thread, radius);
 
 	// if hit a player
-	if (hitInst != 0)
+	if (hitInst != 0 && hitInst->thread != NULL && hitInst->thread->object != NULL)
 	{
 		// get driver from instance
 		hitDriver = (struct Driver *)hitInst->thread->object;
@@ -59,7 +59,7 @@ void Seal_CheckColl(struct Instance *sealInst, struct Thread *sealTh, int damage
 	hitInst = (struct Instance *)LinkedCollide_Radius(sealInst, sealTh, gGT->threadBuckets[ROBOT].thread, radius);
 
 	// if hit a robot
-	if (hitInst != 0)
+	if (hitInst != 0 && hitInst->thread != NULL && hitInst->thread->object != NULL)
 	{
 		// get driver from instance
 		hitDriver = (struct Driver *)hitInst->thread->object;
