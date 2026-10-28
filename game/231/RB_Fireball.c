@@ -320,7 +320,11 @@ void RB_Fireball_LInB(struct Instance *inst)
 	fireObj->velY = 96;
 	fireObj->direction = 0;
 
-	fireballID = inst->name[strlen(inst->name) - 1] - '0';
+	fireballID = 0;
+	if (inst->name != NULL && strlen(inst->name) > 0)
+	{
+		fireballID = inst->name[strlen(inst->name) - 1] - '0';
+	}
 	fireObj->fireballID = fireballID;
 
 	if ((fireballID & 1) != 0)

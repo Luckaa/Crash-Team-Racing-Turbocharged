@@ -1,0 +1,3 @@
+# URL do Servidor Central (Lobby e Relay) do CTR Turbocharged
+# Tunel Playit.gg TCP (teste2) configurado:
+http://malls-norman.tun.ply.gg:38493

@@ -28,6 +28,18 @@ enum NativeAdhocGameMode
 	NATIVE_ADHOC_GAME_MODE_COUNT,
 };
 
+enum NativeAdhocNetType
+{
+	NATIVE_ADHOC_NET_LOCAL = 0,
+	NATIVE_ADHOC_NET_ONLINE,
+	NATIVE_ADHOC_NET_COUNT,
+};
+
+void NativeAdhoc_SetNetType(int netType);
+int NativeAdhoc_GetNetType(void);
+void NativeAdhoc_SetRelayInfo(const char *host, u16 port, const char *roomCode, int slot);
+int NativeAdhoc_IsRelayActive(void);
+
 int NativeAdhoc_IsSupported(void);
 int NativeAdhoc_Begin(int role, int gameMode);
 void NativeAdhoc_Shutdown(void);
@@ -47,6 +59,12 @@ struct PushBuffer *NativeAdhoc_GetRenderPushBuffer(void);
 int NativeAdhoc_IsActive(void);
 int NativeAdhoc_IsConnected(void);
 int NativeAdhoc_IsSimulationActive(void);
+int NativeAdhoc_IsHost(void);
+int NativeAdhoc_IsClient(void);
+int NativeAdhoc_ShouldSimulateDriverPhysics(int driverID);
+int NativeAdhoc_ShouldRunBotAI(void);
+int NativeAdhoc_ShouldProcessItemCollisions(void);
+int NativeAdhoc_ShouldShootWeapon(int driverID);
 int NativeAdhoc_IsDialogRunning(void);
 int NativeAdhoc_ShouldPresentDriver(int driverID);
 int NativeAdhoc_ShouldPresentInteractionVoice(int speakerDriverID, int otherDriverID);

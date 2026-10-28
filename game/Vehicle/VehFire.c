@@ -290,11 +290,15 @@ void VehFire_Increment(struct Driver *driver, int reserves, u32 type, int fireLe
 			turboObj->inst = turboInst2;
 			turboObj->fireAnimIndex = 0;
 
+#if defined(CTR_NATIVE)
+			addFlags = VISIBLE_DURING_GAMEPLAY;
+#else
 			// 1P flags
 			if (gGT->numPlyrCurrGame == 1)
 			{
 				addFlags = VISIBLE_DURING_GAMEPLAY;
 			}
+#endif
 
 			// Initial fire instances are billboarded but hidden until the turbo tick reveals them.
 			turboInst1->flags = turboInst1->flags | addFlags | VEH_FIRE_INITIAL_INSTANCE_FLAGS;
@@ -454,10 +458,13 @@ void VehFire_Increment(struct Driver *driver, int reserves, u32 type, int fireLe
 	}
 
 	// player of any kind
-	if (driver->instSelf->thread->modelIndex == DYNAMIC_PLAYER)
+	if ((driver->instSelf != NULL) && (driver->instSelf->thread != NULL) && (driver->instSelf->thread->modelIndex == DYNAMIC_PLAYER))
 	{
 		// CameraDC flag
-		gGT->cameraDC[driver->driverID].flags |= VEH_FIRE_CAMERA_SHAKE_FLAG;
+		if (driver->driverID < 4)
+		{
+			gGT->cameraDC[driver->driverID].flags |= VEH_FIRE_CAMERA_SHAKE_FLAG;
+		}
 
 		// gamepad vibration
 		GAMEPAD_ShockForce1(driver, VEH_FIRE_RUMBLE_CHANNEL, VEH_FIRE_RUMBLE_FORCE);

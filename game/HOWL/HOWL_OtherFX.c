@@ -53,7 +53,7 @@ int OtherFX_Play_LowLevel(u32 soundID, u8 boolAntiSpam, u32 flags)
 	u16 echo = (u16)HowlSfx_Echo(flags);
 	struct ChannelAttr channelAttr;
 
-	if (sdata->boolAudioEnabled == 0)
+	if ((sdata == NULL) || (sdata->boolAudioEnabled == 0) || (sdata->ptrHowlHeader == NULL) || (sdata->howl_metaOtherFX == NULL) || (sdata->howl_spuAddrs == NULL))
 	{
 		return 0;
 	}
@@ -141,7 +141,7 @@ u32 OtherFX_Modify(u32 soundId, u32 flags)
 	u16 echo;
 	u16 LR;
 
-	if (sdata->boolAudioEnabled == 0)
+	if ((sdata == NULL) || (sdata->boolAudioEnabled == 0) || (sdata->ptrHowlHeader == NULL) || (sdata->howl_metaOtherFX == NULL))
 	{
 		return 0;
 	}

@@ -7,7 +7,7 @@
 static inline int VehPickupItem_ShouldPlayLocalDriverFx(struct Driver *driver)
 {
 #if defined(CTR_NATIVE)
-	if (NativeAdhoc_IsConnected() && (driver != NULL) && (driver->driverID < 2))
+	if (NativeAdhoc_IsConnected() && (driver != NULL) && (driver->driverID < 8))
 	{
 		return NativeAdhoc_ShouldPresentDriver(driver->driverID);
 	}
@@ -39,6 +39,23 @@ static inline void VehPickupItem_ClearMineMotion(struct MineWeapon *mine)
 	mine->velocity.y = 0;
 	mine->velocity.z = 0;
 	mine->stopFallAtY = 0;
+}
+
+struct Driver *VehPickupItem_FindDriverByInstance(struct Instance *inst)
+{
+	if ((inst == NULL) || (sdata == NULL) || (sdata->gGT == NULL))
+	{
+		return NULL;
+	}
+	for (int i = 0; i < 8; i++)
+	{
+		struct Driver *d = sdata->gGT->drivers[i];
+		if ((d != NULL) && (d->instSelf == inst))
+		{
+			return d;
+		}
+	}
+	return NULL;
 }
 
 enum
@@ -356,25 +373,37 @@ struct MaskHeadWeapon *VehPickupItem_MaskUseWeapon(struct Driver *driver, b32 bo
 		}
 	}
 
-	modelPtr = gGT->modelPtr[STATIC_AKUBEAM + ((modelID - STATIC_AKUAKU) * MASK_BEAM_MODEL_STRIDE)];
+	if (instance == NULL || instance->thread == NULL)
+	{
+		return NULL;
+	}
+
+	modelPtr = (gGT != NULL && gGT->modelPtr != NULL) ? gGT->modelPtr[STATIC_AKUBEAM + ((modelID - STATIC_AKUAKU) * MASK_BEAM_MODEL_STRIDE)] : NULL;
 
 	t = instance->thread;
 
 	maskObj = (struct MaskHeadWeapon *)t->object;
+	if (maskObj == NULL)
+	{
+		return NULL;
+	}
 
 // NOTE(aalhendi): Native keeps this model lookup string host-side; PS1 uses
 // the retail RDATA symbol.
 #ifdef CTR_NATIVE
-	maskObj->maskBeamInst = INSTANCE_Birth3D(modelPtr, "akubeam1", t);
+	maskObj->maskBeamInst = (modelPtr != NULL) ? INSTANCE_Birth3D(modelPtr, "akubeam1", t) : NULL;
 #else
-	maskObj->maskBeamInst = INSTANCE_Birth3D(modelPtr, rdata.s_akubeam1, t);
+	maskObj->maskBeamInst = (modelPtr != NULL) ? INSTANCE_Birth3D(modelPtr, rdata.s_akubeam1, t) : NULL;
 #endif
 
 	t->funcThDestroy = PROC_DestroyInstance;
 
 	t->flags |= THREAD_FLAG_DISABLE_COLLISION;
 	instance->flags |= HIDE_MODEL;
-	maskObj->maskBeamInst->flags |= HIDE_MODEL;
+	if (maskObj->maskBeamInst != NULL)
+	{
+		maskObj->maskBeamInst->flags |= HIDE_MODEL;
+	}
 	maskObj->duration = (driver->numWumpas < DRIVER_WUMPA_JUICED_COUNT) ? MASK_HEAD_DURATION_NORMAL : MASK_HEAD_DURATION_JUICED;
 	maskObj->rot.x = MASK_INITIAL_ROT_X;
 	maskObj->rot.y = 0;
@@ -386,6 +415,10 @@ struct MaskHeadWeapon *VehPickupItem_MaskUseWeapon(struct Driver *driver, b32 bo
 
 static struct PushBuffer *VehPickupItem_GetDriverPushBuffer(struct GameTracker *gGT, u8 driverID)
 {
+	if (driverID >= 4)
+	{
+		driverID = 0;
+	}
 	return &gGT->pushBuffer[driverID];
 }
 
@@ -680,11 +713,10 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 
 		// medium stack pool
 		weaponInst = INSTANCE_BirthWithThread(modelID, weaponName, MEDIUM, bucket, RB_MovingExplosive_ThTick, sizeof(struct TrackerWeapon), parentTh);
-
-		// NOTE(aalhendi): Native low-RAM audit candidate only. Retail
-		// dereferences weapon birth results before later checks in several
-		// branches of this function; keep unpatched until memory pressure or
-		// gameplay repro proves the semantic fallback.
+		if (weaponInst == NULL || weaponInst->thread == NULL)
+		{
+			return;
+		}
 
 		VehPickupItem_CopyMatrix(&weaponInst->matrix, &dInst->matrix);
 
@@ -811,6 +843,10 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 		}
 
 		weaponInst = INSTANCE_BirthWithThread(modelID, mineName, SMALL, MINE, RB_GenericMine_ThTick, sizeof(struct MineWeapon), 0);
+		if (weaponInst == NULL || weaponInst->thread == NULL)
+		{
+			return;
+		}
 
 		dInst = d->instSelf;
 
@@ -954,6 +990,10 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 			modelID = STATIC_BEAKER_RED;
 
 			weaponInst = INSTANCE_BirthWithThread(modelID, sdata->s_beaker1, SMALL, MINE, RB_GenericMine_ThTick, sizeof(struct MineWeapon), 0);
+			if (weaponInst == 0 || weaponInst->thread == NULL)
+			{
+				return;
+			}
 		}
 
 		dInst = d->instSelf;
@@ -1020,6 +1060,10 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 
 		weaponInst =
 		    INSTANCE_BirthWithThread(SHIELD_DARK_MODEL, shieldDarkName, MEDIUM, OTHER, RB_ShieldDark_ThTick_Grow, sizeof(struct Shield), d->instSelf->thread);
+		if (weaponInst == NULL || weaponInst->thread == NULL)
+		{
+			return;
+		}
 
 		weaponTh = weaponInst->thread;
 		weaponInst->scale.x = SHIELD_SCALE;
@@ -1133,6 +1177,10 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 		char *warpballName = rdata.s_warpball;
 
 		weaponInst = INSTANCE_BirthWithThread(WARPBALL_MODEL, warpballName, MEDIUM, TRACKING, RB_Warpball_ThTick, sizeof(struct TrackerWeapon), 0);
+		if (weaponInst == NULL || weaponInst->thread == NULL)
+		{
+			return;
+		}
 
 		weaponInst->matrix.m[0][0] = WARPBALL_MATRIX_IDENTITY_SCALE;
 		weaponInst->matrix.m[0][1] = 0;
@@ -1296,6 +1344,13 @@ void VehPickupItem_ShootOnCirclePress(struct Driver *d)
 	{
 		VehPickState_NewState(d, d->pendingDamageType, d->pendingDamageAttacker, d->pendingDamageReasonByte);
 	}
+
+#if defined(CTR_NATIVE)
+	if (!NativeAdhoc_ShouldShootWeapon(d->driverID))
+	{
+		return;
+	}
+#endif
 
 	// If you want to fire a weapon
 	if ((d->actionsFlagSet & ACTION_WEAPON_FIRE_REQUEST) == 0)

@@ -217,6 +217,11 @@ void UI_Weapon_DrawSelf(s16 posX, s16 posY, s16 scale, struct Driver *d)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80050af8-0x80050c20.
 void UI_Weapon_DrawBG(s16 posX, s16 posY, s16 scale, struct Driver *d)
 {
+	if (d == NULL || d->driverID >= 4 || sdata == NULL || sdata->gGT == NULL)
+	{
+		return;
+	}
+
 	struct GameTracker *gGT = sdata->gGT;
 
 	// reduce frame timer until it hits zero (unused?)

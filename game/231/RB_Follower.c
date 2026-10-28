@@ -117,7 +117,7 @@ void RB_Follower_Init(struct Driver *d, struct Thread *mineTh)
 	}
 
 	// disable for reverse camera
-	if (((sdata->gGT->cameraDC[d->driverID].flags) & CAMERA_FLAG_REVERSE) != 0)
+	if ((d != NULL) && (d->driverID < 4) && (((sdata->gGT->cameraDC[d->driverID].flags) & CAMERA_FLAG_REVERSE) != 0))
 	{
 		return;
 	}
@@ -125,7 +125,7 @@ void RB_Follower_Init(struct Driver *d, struct Thread *mineTh)
 	// create a thread and an Instance
 	followerInst = INSTANCE_BirthWithThread(mineTh->modelIndex, "follower", SMALL, FOLLOWER, RB_Follower_ThTick, sizeof(struct Follower), 0);
 
-	if (followerInst == NULL)
+	if (followerInst == NULL || followerInst->thread == NULL)
 	{
 		return;
 	}

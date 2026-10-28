@@ -100,11 +100,13 @@ void RB_Burst_CollThBucket(struct ScratchpadStruct *sps, void *hitObject)
 	gGT = sdata->gGT;
 
 	weaponTh = sps->Union.ThBuckColl.thread;
-	tw = weaponTh->object;
+	if (weaponTh == NULL) return;
+	tw = (struct TrackerWeapon *)weaponTh->object;
 	void *weaponObj = weaponTh->object;
 
-	struct Driver *attacker;
+	struct Driver *attacker = NULL;
 	struct Driver *victim = t->object;
+	if (victim == NULL) return;
 	model = t->modelIndex;
 
 	b32 hitDriver = (model == DYNAMIC_PLAYER) || (model == DYNAMIC_ROBOT_CAR);
@@ -115,7 +117,8 @@ void RB_Burst_CollThBucket(struct ScratchpadStruct *sps, void *hitObject)
 		b32 weaponIsMineHazard = (model == PU_EXPLOSIVE_CRATE) || (model == STATIC_BEAKER_RED) || (model == STATIC_BEAKER_GREEN) || (model == STATIC_CRATE_TNT);
 		if (weaponIsMineHazard)
 		{
-			attacker = ((struct MineWeapon *)weaponObj)->instParent->thread->object;
+			struct MineWeapon *mw = (struct MineWeapon *)weaponObj;
+			attacker = VehPickupItem_FindDriverByInstance(mw != NULL ? mw->instParent : NULL);
 
 			// blast driver
 			RB_Hazard_HurtDriver(victim, 2, attacker, 2);
@@ -132,12 +135,12 @@ void RB_Burst_CollThBucket(struct ScratchpadStruct *sps, void *hitObject)
 				reason = 3;
 			}
 
-			attacker = ((struct TrackerWeapon *)weaponObj)->instParent->thread->object;
+			attacker = VehPickupItem_FindDriverByInstance(tw != NULL ? tw->instParent : NULL);
 
 			// blast driver
 			RB_Hazard_HurtDriver(victim, 2, attacker, reason);
 
-			if (attacker->longestShot < tw->timeAlive)
+			if (attacker != NULL && tw != NULL && (attacker->longestShot < tw->timeAlive))
 			{
 				attacker->longestShot = tw->timeAlive;
 			}
@@ -257,14 +260,24 @@ void RB_Burst_Init(struct Instance *weaponInst)
 	struct Thread *t;
 	int *burst;
 
+	if (weaponInst == NULL || weaponInst->model == NULL)
+		return;
+
+	if (gGT == NULL || gGT->modelPtr[STATIC_WARPEDBURST] == NULL || gGT->modelPtr[STATIC_SHOCKWAVE_RED] == NULL)
+		return;
+
 	// initialize thread for burst
 	currInst = INSTANCE_BirthWithThread(STATIC_WARPEDBURST, s_burst_explosion1, SMALL, BURST, RB_Burst_ThTick, 0xc, 0);
+	if (currInst == NULL || currInst->thread == NULL)
+		return;
 
 	// get thread from instance
 	t = currInst->thread;
 
 	// get object from thread
 	burst = t->object;
+	if (burst == NULL)
+		return;
 
 	// ====== First Instance =========
 
@@ -276,50 +289,61 @@ void RB_Burst_Init(struct Instance *weaponInst)
 
 	// set flag to always point to camera
 	headers = currInst->model->headers;
-	headers[0].flags |= 2;
+	if (headers != NULL)
+		headers[0].flags |= 2;
 
 	// ======== Next one ===========
 
 	currInst = INSTANCE_Birth3D(gGT->modelPtr[STATIC_WARPEDBURST], s_burst_explosion2, t);
+	if (currInst != NULL)
+	{
+		burst[2] = (int)currInst;
+		currInst->depthBiasNormal += -2;
 
-	burst[2] = (int)currInst;
-	currInst->depthBiasNormal += -2;
+		currInst->flags |= VISIBLE_DURING_GAMEPLAY;
 
-	currInst->flags |= VISIBLE_DURING_GAMEPLAY;
+		// rotate 90 degrees
+		currInst->matrix.m[0][0] = 0;
+		currInst->matrix.m[0][1] = 0xf000;
+		currInst->matrix.m[0][2] = 0;
+		currInst->matrix.m[1][0] = 0x1000;
+		CTR_WriteU32LE(&currInst->matrix.m[1][1], 0);
+		CTR_WriteU32LE(&currInst->matrix.m[2][0], 0);
+		currInst->matrix.m[2][2] = 0x1000;
 
-	// rotate 90 degrees
-	currInst->matrix.m[0][0] = 0;
-	currInst->matrix.m[0][1] = 0xf000;
-	currInst->matrix.m[0][2] = 0;
-	currInst->matrix.m[1][0] = 0x1000;
-	CTR_WriteU32LE(&currInst->matrix.m[1][1], 0);
-	CTR_WriteU32LE(&currInst->matrix.m[2][0], 0);
-	currInst->matrix.m[2][2] = 0x1000;
-
-	// set flag to always point to camera
-	headers = currInst->model->headers;
-	headers[0].flags |= 2;
+		// set flag to always point to camera
+		headers = currInst->model->headers;
+		if (headers != NULL)
+			headers[0].flags |= 2;
+	}
 
 	// ======= Next One ===========
 
 	currInst = INSTANCE_Birth3D(gGT->modelPtr[STATIC_SHOCKWAVE_RED], s_burst_shockwave1, t);
+	if (currInst != NULL)
+	{
+		burst[0] = (int)currInst;
+		currInst->depthBiasNormal += -2;
 
-	burst[0] = (int)currInst;
-	currInst->depthBiasNormal += -2;
+		// instance flags
+		currInst->flags |= (VISIBLE_DURING_GAMEPLAY | DRAW_BILLBOARD);
 
-	// instance flags
-	currInst->flags |= (VISIBLE_DURING_GAMEPLAY | DRAW_BILLBOARD);
-
-	// set flag to always point to camera
-	headers = currInst->model->headers;
-	headers[0].flags |= 2;
-	headers[1].flags |= 2;
+		// set flag to always point to camera
+		headers = currInst->model->headers;
+		if (headers != NULL)
+		{
+			headers[0].flags |= 2;
+			headers[1].flags |= 2;
+		}
+	}
 
 	// ======= End of Instance =========
 
 	for (int i = 0; /*i < 3*/; i++)
 	{
 		currInst = (struct Instance *)burst[i];
+		if (currInst == NULL)
+			continue;
 
 		currInst->matrix.t[0] = weaponInst->matrix.t[0];
 		currInst->matrix.t[1] = weaponInst->matrix.t[1] + -0x30;
@@ -350,15 +374,27 @@ void RB_Burst_Init(struct Instance *weaponInst)
 	}
 
 	// currInst is burst[2]
+	currInst = (struct Instance *)burst[2];
+	if (currInst != NULL)
+	{
+		// rotate 90 degrees (X -> -Y)
+		currInst->matrix.m[0][0] = 0;
+		currInst->matrix.m[0][1] = 0xf000;
+		currInst->matrix.m[0][2] = 0;
 
-	// rotate 90 degrees (X -> -Y)
-	currInst->matrix.m[0][0] = 0;
-	currInst->matrix.m[0][1] = 0xf000;
-	currInst->matrix.m[0][2] = 0;
+		// rotate 90 degrees (Y -> X)
+		currInst->matrix.m[1][0] = 0x1000;
+		CTR_WriteU32LE(&currInst->matrix.m[1][1], 0);
+	}
 
-	// rotate 90 degrees (Y -> X)
-	currInst->matrix.m[1][0] = 0x1000;
-	CTR_WriteU32LE(&currInst->matrix.m[1][1], 0);
+#if defined(CTR_NATIVE)
+	// In network multiplayer, client only presents visual/audio effects;
+	// hitbox collision queries and damage are authoritative on the host!
+	if (NativeAdhoc_IsConnected() && !NativeAdhoc_IsHost())
+	{
+		return;
+	}
+#endif
 
 	// ========= Collisions ===========
 
@@ -369,7 +405,7 @@ void RB_Burst_Init(struct Instance *weaponInst)
 	sps->Input1.pos.y = weaponInst->matrix.t[1];
 	sps->Input1.pos.z = weaponInst->matrix.t[2];
 
-	struct TrackerWeapon *tw = weaponInst->thread->object;
+	struct TrackerWeapon *tw = (weaponInst->thread != NULL) ? (struct TrackerWeapon *)weaponInst->thread->object : NULL;
 
 	int modelID = weaponInst->model->id;
 
@@ -382,17 +418,17 @@ void RB_Burst_Init(struct Instance *weaponInst)
 	}
 	else
 	{
-		if ((tw->flags & TRACKER_FLAG_POWERED_UP) == 0)
-		{
-			// hitRadius and hitRadiusSquared
-			sps->Input1.hitRadius = 0x140;
-			sps->Input1.hitRadiusSquared = 0x19000;
-		}
-		else
+		if (tw != NULL && (tw->flags & TRACKER_FLAG_POWERED_UP) != 0)
 		{
 			// hitRadius and hitRadiusSquared
 			sps->Input1.hitRadius = 0x200;
 			sps->Input1.hitRadiusSquared = 0x40000;
+		}
+		else
+		{
+			// hitRadius and hitRadiusSquared
+			sps->Input1.hitRadius = 0x140;
+			sps->Input1.hitRadiusSquared = 0x19000;
 		}
 	}
 
@@ -401,7 +437,11 @@ void RB_Burst_Init(struct Instance *weaponInst)
 	sps->Union.ThBuckColl.thread = weaponInst->thread;
 	sps->Union.ThBuckColl.funcCallback = RB_Burst_CollThBucket;
 
-	struct Thread *driverTh = tw->driverParent->instSelf->thread;
+	struct Thread *driverTh = NULL;
+	if (tw != NULL && tw->driverParent != NULL && tw->driverParent->instSelf != NULL)
+	{
+		driverTh = tw->driverParent->instSelf->thread;
+	}
 
 	// check collision with all Player thread
 	PROC_CollideHitboxWithBucket(gGT->threadBuckets[PLAYER].thread, sps, driverTh);

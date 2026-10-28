@@ -4,6 +4,11 @@
 
 int RB_Hazard_HurtDriver(struct Driver *driverVictim, int damageType, struct Driver *driverAttacker, int reason)
 {
+	if (driverVictim == NULL || sdata == NULL || sdata->gGT == NULL)
+	{
+		return 0;
+	}
+
 	struct GameTracker *gGT = sdata->gGT;
 	int result = 0;
 
@@ -26,6 +31,11 @@ int RB_Hazard_HurtDriver(struct Driver *driverVictim, int damageType, struct Dri
 // NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 231 0x800ac220-0x800ac350.
 struct Instance *RB_Hazard_CollideWithDrivers(struct Instance *weaponInst, s16 parentSafetyFrames, int hitRadius, struct Instance *mineDriverInst)
 {
+	if (weaponInst == NULL || weaponInst->model == NULL || sdata == NULL || sdata->gGT == NULL)
+	{
+		return NULL;
+	}
+
 	int j;
 
 	u32 dist[3];
@@ -38,7 +48,7 @@ struct Instance *RB_Hazard_CollideWithDrivers(struct Instance *weaponInst, s16 p
 	{
 		struct Driver *driver = sdata->gGT->drivers[i];
 
-		if (driver == 0)
+		if (driver == 0 || driver->instSelf == NULL)
 		{
 			continue;
 		}
@@ -92,6 +102,11 @@ struct Instance *RB_Hazard_CollideWithDrivers(struct Instance *weaponInst, s16 p
 struct Instance *RB_Hazard_CollideWithBucket(struct Instance *weaponInst, struct Thread *weaponTh, struct Thread *bucket, s16 parentSafetyFrames, int hitRadius,
                                              struct Instance *mineDriverInst)
 {
+	if (weaponInst == NULL)
+	{
+		return NULL;
+	}
+
 	int i;
 
 	s32 distComponent;
@@ -103,6 +118,10 @@ struct Instance *RB_Hazard_CollideWithBucket(struct Instance *weaponInst, struct
 	{
 		distCheck = 0;
 		struct Instance *threadInst = bucket->inst;
+		if (threadInst == NULL)
+		{
+			continue;
+		}
 
 		for (i = 0; i < 3; i++)
 		{
@@ -135,7 +154,17 @@ void RB_Hazard_ThCollide_Generic_Alt(struct Thread **threadSlot)
 // NOTE(aalhendi): Native ThCollide ABI is void; retail returns v0=1.
 void RB_Hazard_ThCollide_Missile(struct Thread *thread)
 {
+	if (thread == NULL || thread->inst == NULL)
+	{
+		return;
+	}
+
 	struct Instance *inst = thread->inst;
+	if (inst->thread == NULL || inst->thread->object == NULL || inst->model == NULL)
+	{
+		return;
+	}
+
 	struct TrackerWeapon *tw = inst->thread->object;
 
 	if (inst->model->id == DYNAMIC_ROCKET)
@@ -166,7 +195,17 @@ void RB_Hazard_ThCollide_Missile(struct Thread *thread)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ac4b8-0x800ac5e8.
 void RB_Hazard_ThCollide_Generic(struct Thread *thread)
 {
+	if (thread == NULL || thread->inst == NULL || thread->object == NULL)
+	{
+		return;
+	}
+
 	struct Instance *inst = thread->inst;
+	if (inst->model == NULL)
+	{
+		return;
+	}
+
 	struct MineWeapon *mw = thread->object;
 	int soundID;
 

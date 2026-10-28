@@ -231,12 +231,18 @@ static void MainGameEnd_AddBattleWinner(struct GameTracker *gGT, struct Driver *
 {
 	u32 winnerIndex = gGT->numWinners;
 	u8 driverID = driver->driverID;
-	gGT->winnerIndex[winnerIndex] = driverID;
+	if (winnerIndex < 4)
+	{
+		gGT->winnerIndex[winnerIndex] = driverID;
+	}
 
-	struct PushBuffer *pb = &gGT->pushBuffer[driverID];
-	pb->fadeFromBlack_currentValue = 0x1fff;
-	pb->fadeFromBlack_desiredResult = 0x1000;
-	pb->fade_step = 0xff78;
+	if (driverID < 4)
+	{
+		struct PushBuffer *pb = &gGT->pushBuffer[driverID];
+		pb->fadeFromBlack_currentValue = 0x1fff;
+		pb->fadeFromBlack_desiredResult = 0x1000;
+		pb->fade_step = 0xff78;
+	}
 
 	BOTS_Driver_Convert(driver);
 	gGT->numWinners++;

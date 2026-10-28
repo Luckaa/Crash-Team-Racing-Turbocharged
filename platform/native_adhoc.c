@@ -1,9 +1,11 @@
 #include <common.h>
 #include <platform.h>
+#include <ovr_231.h>
 
 #include "platform/native_adhoc.h"
 #include "platform/native_checkpoint.h"
 #include "platform/native_input.h"
+#include "platform/native_lobby_client.h"
 #include "platform/native_log.h"
 #include "platform/native_gpu_links.h"
 
@@ -54,7 +56,7 @@ typedef struct sockaddr_in NativeNetAddr;
 #endif
 
 #define NATIVE_ADHOC_MAGIC 0x41485443u
-#define NATIVE_ADHOC_VERSION 13u
+#define NATIVE_ADHOC_VERSION 15u
 #define NATIVE_ADHOC_PORT 31847
 #define NATIVE_ADHOC_PDP_BUFSIZE 0x8000
 #define NATIVE_ADHOC_NET_MEMORY_SIZE (1024 * 1024)
@@ -63,10 +65,11 @@ typedef struct sockaddr_in NativeNetAddr;
 #define NATIVE_ADHOC_SESSION_INTERVAL_US 250000u
 #define NATIVE_ADHOC_HEARTBEAT_INTERVAL_US 500000u
 #define NATIVE_ADHOC_PEER_TIMEOUT_US 15000000u
-#define NATIVE_ADHOC_INPUT_RING_SIZE 64u
+#define NATIVE_ADHOC_INPUT_RING_SIZE 128u
 #define NATIVE_ADHOC_INPUT_RING_MASK (NATIVE_ADHOC_INPUT_RING_SIZE - 1u)
 #define NATIVE_ADHOC_INPUT_DELAY 4u
-#define NATIVE_ADHOC_INPUT_REDUNDANCY 8u
+#define NATIVE_ADHOC_INPUT_DELAY_ONLINE 6u
+#define NATIVE_ADHOC_INPUT_REDUNDANCY 24u
 #define NATIVE_ADHOC_HASH_INTERVAL 30u
 #define NATIVE_ADHOC_HASH_HISTORY 8u
 #define NATIVE_ADHOC_SNAPSHOT_CHUNK_SIZE 1024u
@@ -76,6 +79,7 @@ typedef struct sockaddr_in NativeNetAddr;
 #define NATIVE_ADHOC_RENDER_OT_ENTRIES 0x400u
 #define NATIVE_ADHOC_NETCTL_EVENT_DISCONNECT_REQ_FINISHED 2
 #define NATIVE_ADHOC_MAX_PEERS 3
+#define NATIVE_ADHOC_MAX_PACKET_SIZE 2048u
 
 CTR_STATIC_ASSERT((NATIVE_ADHOC_INPUT_RING_SIZE & NATIVE_ADHOC_INPUT_RING_MASK) == 0);
 
@@ -109,6 +113,7 @@ enum NativeAdhocPacketType
 	NATIVE_ADHOC_PACKET_RACE_PROPOSAL,
 	NATIVE_ADHOC_PACKET_RACE_CONFIG,
 	NATIVE_ADHOC_PACKET_RACE_CONFIG_ACK,
+	NATIVE_ADHOC_PACKET_DRIVER_STATE,
 };
 
 struct NativeAdhocPacketHeader
@@ -192,6 +197,9 @@ struct NativeAdhocSessionPacket
 	u8 smoothedAI;
 	u8 smoothedCollision;
 	u8 smoothedSteering;
+	u8 kartSpawnOrderArray[8];
+	u8 driver_pathIndexIDs[8];
+	u8 accelerateOrder[8];
 };
 
 struct NativeAdhocReadyPacket
@@ -327,6 +335,71 @@ struct NativeAdhocRaceConfigAckPacket
 	u8 clientIndex;
 	u8 gameMode;
 	u8 reserved[2];
+};
+
+struct NativeAdhocDriverStateEntry
+{
+	u8 driverID;
+	u8 kartState;
+	s8 numWumpas;
+	u8 heldItemID;
+	u8 numHeldItems;
+	u8 lapIndex;
+	s8 simpTurnState;
+	u8 matrixArray;
+	s16 squishTimer;
+	s16 burnTimer;
+	s16 speed;
+	s16 speedApprox;
+	s16 reserves;
+	s16 fireSpeed;
+	s16 fireSpeedCap;
+	s16 angle;
+	s8 animIndex;
+	u8 shieldType;
+	u8 matrixIndex;
+	u8 hasTntOnHead;
+	s16 animFrame;
+	u16 tireColor;
+	s16 wheelRotation;
+	Vec3 posCurr;
+	Vec3 velocity;
+	SVec3Slot rotCurr;
+	SVec3Slot normalVec;
+	s16 matrix[3][3];
+	s32 timeElapsedInRace;
+	u32 actionsFlagSet;
+	struct DriverCheckpointState checkpoint;
+	s16 driverRank;
+	u32 distanceToFinish_curr;
+};
+
+#define NATIVE_ADHOC_MAX_WORLD_ITEMS 16
+
+struct NativeAdhocWorldItem
+{
+	u8 modelID;
+	u8 flags;
+	s16 posX;
+	s16 posY;
+	s16 posZ;
+	s16 rotY;
+};
+
+struct NativeAdhocDriverStatePacket
+{
+	struct NativeAdhocPacketHeader header;
+	u32 sessionId;
+	u32 simulationFrame;
+	s32 trafficLightsTimer;
+	s32 elapsedEventTime;
+	u32 gameMode1;
+	u8 driverCount;
+	u8 itemCount;
+	u8 reserved[2];
+	u32 brokenCratesMask[4];
+	struct NativeAdhocDriverStateEntry drivers[8];
+	struct NativeAdhocWorldItem items[NATIVE_ADHOC_MAX_WORLD_ITEMS];
 };
 
 struct NativeAdhocInputSlot
@@ -566,6 +639,78 @@ static void NativeAdhoc_InitWinsock(void)
 }
 #endif
 
+static int s_nativeAdhocNetType = NATIVE_ADHOC_NET_LOCAL;
+
+void NativeAdhoc_SetNetType(int netType)
+{
+	s_nativeAdhocNetType = (netType == NATIVE_ADHOC_NET_ONLINE) ? NATIVE_ADHOC_NET_ONLINE : NATIVE_ADHOC_NET_LOCAL;
+}
+
+int NativeAdhoc_GetNetType(void)
+{
+	return s_nativeAdhocNetType;
+}
+
+static u32 NativeAdhoc_GetInputDelay(void)
+{
+	return (s_nativeAdhocNetType == NATIVE_ADHOC_NET_ONLINE) ? NATIVE_ADHOC_INPUT_DELAY_ONLINE : NATIVE_ADHOC_INPUT_DELAY;
+}
+
+static int s_nativeAdhocRelayActive = 0;
+static char s_nativeAdhocRelayHost[128] = "127.0.0.1";
+static u16 s_nativeAdhocRelayPort = 31850;
+static char s_nativeAdhocRelayRoomCode[8] = {0};
+static int s_nativeAdhocRelaySlot = 0;
+static NativeNetAddr s_nativeAdhocRelayNetAddr;
+
+void NativeAdhoc_SetRelayInfo(const char *host, u16 port, const char *roomCode, int slot)
+{
+	if (host && host[0] != '\0' && roomCode && roomCode[0] != '\0')
+	{
+		s_nativeAdhocRelayActive = 1;
+		strncpy(s_nativeAdhocRelayHost, host, sizeof(s_nativeAdhocRelayHost) - 1);
+		s_nativeAdhocRelayHost[sizeof(s_nativeAdhocRelayHost) - 1] = '\0';
+		s_nativeAdhocRelayPort = port ? port : 31850;
+		strncpy(s_nativeAdhocRelayRoomCode, roomCode, sizeof(s_nativeAdhocRelayRoomCode) - 1);
+		s_nativeAdhocRelayRoomCode[sizeof(s_nativeAdhocRelayRoomCode) - 1] = '\0';
+		s_nativeAdhocRelaySlot = slot;
+
+		memset(&s_nativeAdhocRelayNetAddr, 0, sizeof(s_nativeAdhocRelayNetAddr));
+		s_nativeAdhocRelayNetAddr.sin_family = AF_INET;
+		s_nativeAdhocRelayNetAddr.sin_port = htons(s_nativeAdhocRelayPort);
+		unsigned long addr = inet_addr(s_nativeAdhocRelayHost);
+		if (addr == INADDR_NONE)
+		{
+			struct hostent *he = gethostbyname(s_nativeAdhocRelayHost);
+			if (he && he->h_addr_list && he->h_addr_list[0])
+			{
+				memcpy(&s_nativeAdhocRelayNetAddr.sin_addr, he->h_addr_list[0], sizeof(s_nativeAdhocRelayNetAddr.sin_addr));
+			}
+			else
+			{
+				s_nativeAdhocRelayNetAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+			}
+		}
+		else
+		{
+			s_nativeAdhocRelayNetAddr.sin_addr.s_addr = addr;
+		}
+
+		Platform_Log("[CTR Adhoc] Relay configurado: Host=%s:%u Sala=%s Slot=%d\n",
+		             s_nativeAdhocRelayHost, (unsigned int)s_nativeAdhocRelayPort,
+		             s_nativeAdhocRelayRoomCode, s_nativeAdhocRelaySlot);
+	}
+	else
+	{
+		s_nativeAdhocRelayActive = 0;
+	}
+}
+
+int NativeAdhoc_IsRelayActive(void)
+{
+	return s_nativeAdhocRelayActive;
+}
+
 static char s_nativeAdhocCustomHostIp[128] = "127.0.0.1";
 static u16 s_nativeAdhocCustomHostPort = NATIVE_ADHOC_PORT;
 
@@ -699,9 +844,22 @@ static void NativeAdhoc_MakeNeutralPad(struct PlatformInputPadSnapshot *pad)
 	pad->connected = 1;
 }
 
+static struct PlatformInputPadSnapshot s_lastKnownPad[4];
+static u32 s_lastKnownPadFrame[4] = {0, 0, 0, 0};
+static int s_hasLastKnownPad[4] = {0, 0, 0, 0};
+static struct PlatformInputPadSnapshot s_latestClientPad[4];
+static u32 s_latestClientFrame[4] = {0, 0, 0, 0};
+static int s_hasLatestClientPad[4] = {0, 0, 0, 0};
+
 static void NativeAdhoc_ClearInputRing(void)
 {
 	memset(s_nativeAdhoc.inputs, 0, sizeof(s_nativeAdhoc.inputs));
+	memset(s_lastKnownPad, 0, sizeof(s_lastKnownPad));
+	memset(s_lastKnownPadFrame, 0, sizeof(s_lastKnownPadFrame));
+	memset(s_hasLastKnownPad, 0, sizeof(s_hasLastKnownPad));
+	memset(s_latestClientPad, 0, sizeof(s_latestClientPad));
+	memset(s_latestClientFrame, 0, sizeof(s_latestClientFrame));
+	memset(s_hasLatestClientPad, 0, sizeof(s_hasLatestClientPad));
 	s_nativeAdhoc.latestLocalInputValid = 0;
 	s_nativeAdhoc.installedFrame = NATIVE_ADHOC_INVALID_FRAME;
 }
@@ -720,6 +878,14 @@ static void NativeAdhoc_StoreInput(int playerIndex, u32 frame, const struct Plat
 	slot->pad = *pad;
 	slot->pad.connected = 1;
 	slot->valid = 1;
+
+	if (!s_hasLastKnownPad[playerIndex] || (frame >= s_lastKnownPadFrame[playerIndex]))
+	{
+		s_lastKnownPad[playerIndex] = *pad;
+		s_lastKnownPad[playerIndex].connected = 1;
+		s_lastKnownPadFrame[playerIndex] = frame;
+		s_hasLastKnownPad[playerIndex] = 1;
+	}
 }
 
 static int NativeAdhoc_GetInput(int playerIndex, u32 frame, struct PlatformInputPadSnapshot *pad)
@@ -734,6 +900,14 @@ static int NativeAdhoc_GetInput(int playerIndex, u32 frame, struct PlatformInput
 	slot = &s_nativeAdhoc.inputs[playerIndex][frame & NATIVE_ADHOC_INPUT_RING_MASK];
 	if (!slot->valid || (slot->frame != frame))
 	{
+		if (s_hasLastKnownPad[playerIndex])
+		{
+			if (pad != NULL)
+			{
+				*pad = s_lastKnownPad[playerIndex];
+			}
+			return 1;
+		}
 		return 0;
 	}
 
@@ -747,12 +921,13 @@ static int NativeAdhoc_GetInput(int playerIndex, u32 frame, struct PlatformInput
 static void NativeAdhoc_ResetLockstep(u32 frame)
 {
 	struct PlatformInputPadSnapshot neutral;
+	u32 inputDelay = NativeAdhoc_GetInputDelay();
 
 	NativeAdhoc_ClearInputRing();
 	s_nativeAdhoc.simulationFrame = frame;
 	memset(s_nativeAdhoc.extrapolatedFrames, 0, sizeof(s_nativeAdhoc.extrapolatedFrames));
 	NativeAdhoc_MakeNeutralPad(&neutral);
-	for (u32 i = 0; i < NATIVE_ADHOC_INPUT_DELAY; i++)
+	for (u32 i = 0; i < inputDelay; i++)
 	{
 		for (int p = 0; p < 4; p++)
 		{
@@ -839,9 +1014,12 @@ static void NativeAdhoc_FillRaceConfig(struct NativeAdhocRaceConfigPacket *packe
 	packet->language = cfg_language;
 	packet->numPlayers = (u8)NativeAdhoc_GetPlayerCount();
 	packet->characters[0] = (u8)data.characterIDs[0];
-	for (int i = 0; i < s_nativeAdhoc.clientCount; i++)
+	for (int i = 0; i < NATIVE_ADHOC_MAX_PEERS; i++)
 	{
-		packet->characters[i + 1] = s_nativeAdhoc.peers[i].raceProposalChar;
+		if (s_nativeAdhoc.peers[i].active)
+		{
+			packet->characters[i + 1] = s_nativeAdhoc.peers[i].raceProposalValid ? s_nativeAdhoc.peers[i].raceProposalChar : (u8)data.characterIDs[i + 1];
+		}
 	}
 	for (int slot = packet->numPlayers; slot < 4; slot++)
 	{
@@ -1203,6 +1381,28 @@ static int NativeAdhoc_SendRaw(const NativeNetAddr *dst, const void *packet, int
 
 	return (result >= 0) || (result == SCE_ERROR_NET_ADHOC_WOULD_BLOCK);
 #else
+	if (s_nativeAdhocRelayActive && (s_nativeAdhocNetType == NATIVE_ADHOC_NET_ONLINE))
+	{
+		u8 relayBuffer[NATIVE_ADHOC_MAX_PACKET_SIZE];
+		if ((len + 6) > (int)sizeof(relayBuffer))
+		{
+			return 0;
+		}
+		memcpy(relayBuffer, s_nativeAdhocRelayRoomCode, 4);
+		relayBuffer[4] = (u8)s_nativeAdhocRelaySlot;
+		relayBuffer[5] = 0;
+		memcpy(relayBuffer + 6, packet, len);
+
+		int result = sendto(
+			(SOCKET)s_nativeAdhoc.socket,
+			(const char *)relayBuffer,
+			len + 6,
+			0,
+			(const struct sockaddr *)&s_nativeAdhocRelayNetAddr,
+			sizeof(s_nativeAdhocRelayNetAddr));
+		return result > 0;
+	}
+
 	int result = sendto(
 		(SOCKET)s_nativeAdhoc.socket,
 		(const char *)packet,
@@ -1212,6 +1412,66 @@ static int NativeAdhoc_SendRaw(const NativeNetAddr *dst, const void *packet, int
 		sizeof(*dst));
 
 	return result > 0;
+#endif
+}
+
+static void NativeAdhoc_SendToLocalBroadcasts(const void *data, int size)
+{
+#if defined(__vita__)
+	NativeAdhoc_SendRaw(&s_nativeAdhocBroadcastMac, data, size);
+#else
+	if (s_nativeAdhocRelayActive && (s_nativeAdhocNetType == NATIVE_ADHOC_NET_ONLINE))
+	{
+		NativeAdhoc_SendRaw(&s_nativeAdhocRelayNetAddr, data, size);
+		return;
+	}
+	u16 targetPort = (s_nativeAdhocCustomHostPort != 0) ? s_nativeAdhocCustomHostPort : NATIVE_ADHOC_PORT;
+#ifdef _WIN32
+	if (s_nativeAdhoc.socket != (int)NATIVE_INVALID_SOCKET)
+	{
+		INTERFACE_INFO ifList[32];
+		DWORD bytesReturned = 0;
+		if (WSAIoctl((SOCKET)s_nativeAdhoc.socket, SIO_GET_INTERFACE_LIST, NULL, 0, ifList, sizeof(ifList), &bytesReturned, NULL, NULL) == 0)
+		{
+			int numIf = (int)(bytesReturned / sizeof(INTERFACE_INFO));
+			for (int i = 0; i < numIf; i++)
+			{
+				u_long flags = ifList[i].iiFlags;
+				if ((flags & IFF_UP) && (flags & IFF_BROADCAST) && !(flags & IFF_LOOPBACK))
+				{
+					struct sockaddr_in *ip = &ifList[i].iiAddress.AddressIn;
+					struct sockaddr_in *mask = &ifList[i].iiNetmask.AddressIn;
+					u_long bcast = (ip->sin_addr.s_addr & mask->sin_addr.s_addr) | ~mask->sin_addr.s_addr;
+
+					NativeNetAddr target;
+					memset(&target, 0, sizeof(target));
+					target.sin_family = AF_INET;
+					target.sin_port = htons(targetPort);
+					target.sin_addr.s_addr = bcast;
+					NativeAdhoc_SendRaw(&target, data, size);
+				}
+			}
+		}
+	}
+#endif
+	// Global broadcast
+	{
+		NativeNetAddr bcastAddr;
+		memset(&bcastAddr, 0, sizeof(bcastAddr));
+		bcastAddr.sin_family = AF_INET;
+		bcastAddr.sin_port = htons(targetPort);
+		bcastAddr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+		NativeAdhoc_SendRaw(&bcastAddr, data, size);
+	}
+	// Loopback (for same-PC instances)
+	{
+		NativeNetAddr loopAddr;
+		memset(&loopAddr, 0, sizeof(loopAddr));
+		loopAddr.sin_family = AF_INET;
+		loopAddr.sin_port = htons(targetPort);
+		loopAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+		NativeAdhoc_SendRaw(&loopAddr, data, size);
+	}
 #endif
 }
 
@@ -1225,45 +1485,51 @@ static void NativeAdhoc_SendHello(void)
 #if defined(__vita__)
 	NativeAdhoc_SendRaw(&s_nativeAdhocBroadcastMac, &packet, sizeof(packet));
 #else
-	if (s_nativeAdhocCustomHostIp[0] != '\0' &&
-	    strcmp(s_nativeAdhocCustomHostIp, "auto") != 0 &&
-	    strcmp(s_nativeAdhocCustomHostIp, "255.255.255.255") != 0)
+	if (s_nativeAdhocRelayActive && (s_nativeAdhocNetType == NATIVE_ADHOC_NET_ONLINE))
 	{
-		NativeNetAddr targetAddr;
-		memset(&targetAddr, 0, sizeof(targetAddr));
-		targetAddr.sin_family = AF_INET;
-		targetAddr.sin_port = htons(s_nativeAdhocCustomHostPort);
-
-		unsigned long addr = inet_addr(s_nativeAdhocCustomHostIp);
-		if ((addr == INADDR_NONE) && (strcmp(s_nativeAdhocCustomHostIp, "255.255.255.255") != 0))
+		NativeAdhoc_SendRaw(&s_nativeAdhocRelayNetAddr, &packet, sizeof(packet));
+		return;
+	}
+	if (s_nativeAdhocNetType == NATIVE_ADHOC_NET_LOCAL)
+	{
+		NativeAdhoc_SendToLocalBroadcasts(&packet, sizeof(packet));
+	}
+	else
+	{
+		// Online mode: use configured custom host IP
+		if (s_nativeAdhocCustomHostIp[0] != '\0' &&
+		    strcmp(s_nativeAdhocCustomHostIp, "auto") != 0 &&
+		    strcmp(s_nativeAdhocCustomHostIp, "255.255.255.255") != 0)
 		{
-			struct hostent *he = gethostbyname(s_nativeAdhocCustomHostIp);
-			if ((he != NULL) && (he->h_addr_list != NULL) && (he->h_addr_list[0] != NULL))
+			NativeNetAddr targetAddr;
+			memset(&targetAddr, 0, sizeof(targetAddr));
+			targetAddr.sin_family = AF_INET;
+			targetAddr.sin_port = htons(s_nativeAdhocCustomHostPort != 0 ? s_nativeAdhocCustomHostPort : NATIVE_ADHOC_PORT);
+
+			unsigned long addr = inet_addr(s_nativeAdhocCustomHostIp);
+			if ((addr == INADDR_NONE) && (strcmp(s_nativeAdhocCustomHostIp, "255.255.255.255") != 0))
 			{
-				memcpy(&targetAddr.sin_addr, he->h_addr_list[0], sizeof(targetAddr.sin_addr));
+				struct hostent *he = gethostbyname(s_nativeAdhocCustomHostIp);
+				if ((he != NULL) && (he->h_addr_list != NULL) && (he->h_addr_list[0] != NULL))
+				{
+					memcpy(&targetAddr.sin_addr, he->h_addr_list[0], sizeof(targetAddr.sin_addr));
+				}
+				else
+				{
+					targetAddr.sin_addr.s_addr = addr;
+				}
 			}
 			else
 			{
 				targetAddr.sin_addr.s_addr = addr;
 			}
+
+			NativeAdhoc_SendRaw(&targetAddr, &packet, sizeof(packet));
 		}
 		else
 		{
-			targetAddr.sin_addr.s_addr = addr;
+			NativeAdhoc_SendToLocalBroadcasts(&packet, sizeof(packet));
 		}
-
-		NativeAdhoc_SendRaw(&targetAddr, &packet, sizeof(packet));
-	}
-
-	// Sempre envia tambem em broadcast UDP para a rede local (Wi-Fi / LAN),
-	// permitindo conexao automatica entre PCs na mesma casa sem precisar configurar IP!
-	{
-		NativeNetAddr bcastAddr;
-		memset(&bcastAddr, 0, sizeof(bcastAddr));
-		bcastAddr.sin_family = AF_INET;
-		bcastAddr.sin_port = htons(NATIVE_ADHOC_PORT);
-		bcastAddr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
-		NativeAdhoc_SendRaw(&bcastAddr, &packet, sizeof(packet));
 	}
 #endif
 }
@@ -1287,6 +1553,21 @@ static int NativeAdhoc_FindPeerIndex(const NativeNetAddr *src)
 	{
 		return -1;
 	}
+#ifndef __vita__
+	if (s_nativeAdhocRelayActive && (s_nativeAdhocNetType == NATIVE_ADHOC_NET_ONLINE))
+	{
+		int slot = ntohs(src->sin_port) - NATIVE_ADHOC_PORT;
+		if (slot >= 1 && slot <= NATIVE_ADHOC_MAX_PEERS)
+		{
+			int i = slot - 1;
+			if (s_nativeAdhoc.peers[i].active)
+			{
+				return i;
+			}
+		}
+		return -1;
+	}
+#endif
 	for (int i = 0; i < NATIVE_ADHOC_MAX_PEERS; i++)
 	{
 		if (s_nativeAdhoc.peers[i].active && NativeAdhoc_AddrEqual(&s_nativeAdhoc.peers[i].addr, src))
@@ -1303,6 +1584,33 @@ static int NativeAdhoc_FindOrAddPeer(const NativeNetAddr *src, u32 clientId)
 	{
 		return -1;
 	}
+
+#ifndef __vita__
+	// In online relay mode, map relay sender slot 1..3 deterministically to peer slot 0..2
+	if (s_nativeAdhocRelayActive && (s_nativeAdhocNetType == NATIVE_ADHOC_NET_ONLINE))
+	{
+		int slot = ntohs(src->sin_port) - NATIVE_ADHOC_PORT;
+		if (slot >= 1 && slot <= NATIVE_ADHOC_MAX_PEERS)
+		{
+			int i = slot - 1;
+			if (!s_nativeAdhoc.peers[i].active)
+			{
+				memset(&s_nativeAdhoc.peers[i], 0, sizeof(s_nativeAdhoc.peers[i]));
+				s_nativeAdhoc.peers[i].active = 1;
+				s_nativeAdhoc.clientCount++;
+			}
+			s_nativeAdhoc.peers[i].clientId = clientId;
+			s_nativeAdhoc.peers[i].addr = *src;
+			s_nativeAdhoc.peers[i].lastTime = NativeAdhoc_Now();
+			s_nativeAdhoc.peerKnown = 1;
+			s_nativeAdhoc.status = NATIVE_ADHOC_STATUS_CONNECTED;
+			s_nativeAdhoc.lastPeerTime = NativeAdhoc_Now();
+			s_nativeAdhoc.peerMac = *src;
+			NativeAdhoc_SendHeartbeat();
+			return i;
+		}
+	}
+#endif
 
 	// 1. Check if an active peer already has this clientId
 	if (clientId != 0)
@@ -1368,16 +1676,37 @@ static void NativeAdhoc_SendToPeers(const void *packet, int len)
 		return;
 	}
 
+#ifndef __vita__
+	if (s_nativeAdhocRelayActive && (s_nativeAdhocNetType == NATIVE_ADHOC_NET_ONLINE))
+	{
+		NativeAdhoc_SendRaw(&s_nativeAdhocRelayNetAddr, packet, len);
+		return;
+	}
+#endif
+
 	if (s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_CLIENT)
 	{
 		NativeAdhoc_SendRaw(&s_nativeAdhoc.peerMac, packet, len);
 	}
 	else if (s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST)
 	{
+		u32 now = NativeAdhoc_Now();
 		for (int i = 0; i < NATIVE_ADHOC_MAX_PEERS; i++)
 		{
 			if (s_nativeAdhoc.peers[i].active)
 			{
+				if (s_nativeAdhoc.simulationActive && (s_nativeAdhoc.peers[i].lastTime != 0) &&
+				    ((u32)(now - s_nativeAdhoc.peers[i].lastTime) > 4000000u))
+				{
+					Platform_Log("[CTR Multiplayer] Peer %d (player %d) silent for 4s, deactivating.\n", i, i + 1);
+					s_nativeAdhoc.peers[i].active = 0;
+					int clientPlayerIndex = i + 1;
+					if (clientPlayerIndex < 4)
+					{
+						s_hasLatestClientPad[clientPlayerIndex] = 0;
+					}
+					continue;
+				}
 				NativeAdhoc_SendRaw(&s_nativeAdhoc.peers[i].addr, packet, len);
 			}
 		}
@@ -1390,6 +1719,13 @@ static void NativeAdhoc_SendToPeersExcept(const void *packet, int len, int excep
 	{
 		return;
 	}
+
+#ifndef __vita__
+	if (s_nativeAdhocRelayActive && (s_nativeAdhocNetType == NATIVE_ADHOC_NET_ONLINE))
+	{
+		return;
+	}
+#endif
 
 	for (int i = 0; i < NATIVE_ADHOC_MAX_PEERS; i++)
 	{
@@ -1490,6 +1826,14 @@ static int NativeAdhoc_OpenSocket(void)
 #ifdef _WIN32
 	u_long nonblock = 1;
 	ioctlsocket(sock, FIONBIO, &nonblock);
+
+	// Disable SIO_UDP_CONNRESET to avoid WSAECONNRESET on recvfrom when a peer disconnects/crashes
+	#ifndef SIO_UDP_CONNRESET
+	#define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR, 12)
+	#endif
+	BOOL bNewBehavior = FALSE;
+	DWORD dwBytesReturned = 0;
+	WSAIoctl(sock, SIO_UDP_CONNRESET, &bNewBehavior, sizeof(bNewBehavior), NULL, 0, &dwBytesReturned, NULL, NULL);
 #else
 	fcntl(sock, F_SETFL, fcntl(sock, F_GETFL, 0) | O_NONBLOCK);
 #endif
@@ -1538,14 +1882,24 @@ static int NativeAdhoc_OpenSocket(void)
 			s_nativeAdhoc.sessionId = 1;
 		}
 		Platform_Log("[CTR Multiplayer] ========================================\n");
-		Platform_Log("[CTR Multiplayer] SALA ABERTA! Servidor aguardando jogador na porta UDP %u\n",
+		Platform_Log("[CTR Multiplayer] SALA ABERTA (%s)! Servidor aguardando jogador na porta UDP %u\n",
+		             s_nativeAdhocNetType == NATIVE_ADHOC_NET_LOCAL ? "REDE LOCAL" : "ONLINE",
 		             (unsigned int)(s_nativeAdhocCustomHostPort != 0 ? s_nativeAdhocCustomHostPort : NATIVE_ADHOC_PORT));
 		Platform_Log("[CTR Multiplayer] ========================================\n");
 	}
 	else
 	{
-		Platform_Log("[CTR Multiplayer] Buscando sala... (Porta %u | Target IP: %s)\n",
-		             (unsigned int)s_nativeAdhocCustomHostPort, s_nativeAdhocCustomHostIp);
+		if (s_nativeAdhocNetType == NATIVE_ADHOC_NET_LOCAL)
+		{
+			Platform_Log("[CTR Multiplayer] Buscando sala automaticamente na Rede Local (Wi-Fi / LAN broadcast porta %u)...\n",
+			             (unsigned int)(s_nativeAdhocCustomHostPort != 0 ? s_nativeAdhocCustomHostPort : NATIVE_ADHOC_PORT));
+		}
+		else
+		{
+			Platform_Log("[CTR Multiplayer] Buscando sala Online (Porta %u | Target: %s)...\n",
+			             (unsigned int)(s_nativeAdhocCustomHostPort != 0 ? s_nativeAdhocCustomHostPort : NATIVE_ADHOC_PORT),
+			             s_nativeAdhocCustomHostIp);
+		}
 	}
 	return 1;
 #endif
@@ -1831,6 +2185,9 @@ static void NativeAdhoc_FillSession(struct NativeAdhocSessionPacket *packet, con
 	packet->advRng0 = (u32)sdata->advRng.state0;
 	packet->advRng1 = (u32)sdata->advRng.state1;
 	packet->psxRandSeed = PSX_BIOS_GetRandSeed();
+	memcpy(packet->kartSpawnOrderArray, sdata->kartSpawnOrderArray, sizeof(packet->kartSpawnOrderArray));
+	memcpy(packet->driver_pathIndexIDs, sdata->driver_pathIndexIDs, sizeof(packet->driver_pathIndexIDs));
+	memcpy(packet->accelerateOrder, sdata->accelerateOrder, sizeof(packet->accelerateOrder));
 }
 
 static void NativeAdhoc_ApplySessionSeeds(const struct NativeAdhocSessionPacket *packet, struct GameTracker *gGT)
@@ -1874,8 +2231,17 @@ static int NativeAdhoc_SessionMatchesLocal(const struct NativeAdhocSessionPacket
 	return 1;
 }
 
+static struct Thread *s_clientWorldItemThreads[NATIVE_ADHOC_MAX_WORLD_ITEMS] = {0};
+static u32 s_clientWarpballSound = 0;
+
 static void NativeAdhoc_ApplySessionConfig(const struct NativeAdhocSessionPacket *packet, struct GameTracker *gGT)
 {
+	memset(s_clientWorldItemThreads, 0, sizeof(s_clientWorldItemThreads));
+	if (s_clientWarpballSound != 0)
+	{
+		OtherFX_RecycleMute(&s_clientWarpballSound);
+		s_clientWarpballSound = 0;
+	}
 	if ((packet == NULL) || (gGT == NULL))
 	{
 		return;
@@ -1887,7 +2253,46 @@ static void NativeAdhoc_ApplySessionConfig(const struct NativeAdhocSessionPacket
 	gNativeSmoothedAIEnabled = packet->smoothedAI != 0;
 	gNativeSmoothedCollisionEnabled = packet->smoothedCollision != 0;
 	gNativeSmoothedSteeringEnabled = packet->smoothedSteering != 0;
+	memcpy(sdata->kartSpawnOrderArray, packet->kartSpawnOrderArray, sizeof(sdata->kartSpawnOrderArray));
+	memcpy(sdata->driver_pathIndexIDs, packet->driver_pathIndexIDs, sizeof(sdata->driver_pathIndexIDs));
+	memcpy(sdata->accelerateOrder, packet->accelerateOrder, sizeof(sdata->accelerateOrder));
 	NativeAdhoc_ApplySessionSeeds(packet, gGT);
+
+	if ((gGT->level1 != NULL) && (gGT->level1->ptr_mesh_info != NULL))
+	{
+		VehBirth_TeleportAll(gGT, VEH_BIRTH_SPAWN_INIT_RACE_STATE);
+		for (int i = 0; i < 8; i++)
+		{
+			struct Driver *d = gGT->drivers[i];
+			if ((d != NULL) && (d->instSelf != NULL))
+			{
+				struct Instance *inst = d->instSelf;
+				inst->flags &= ~HIDE_MODEL;
+				s16 norm[3] = {0, 0x1000, 0};
+				if (d->AxisAngle2_normalVec.y != 0)
+				{
+					norm[0] = d->AxisAngle2_normalVec.x;
+					norm[1] = d->AxisAngle2_normalVec.y;
+					norm[2] = d->AxisAngle2_normalVec.z;
+				}
+				else if (d->normalVecUP.y != 0)
+				{
+					norm[0] = d->normalVecUP.x;
+					norm[1] = d->normalVecUP.y;
+					norm[2] = d->normalVecUP.z;
+				}
+				VehPhysForce_RotAxisAngle(&d->matrixFacingDir, norm, d->rotCurr.y != 0 ? d->rotCurr.y : d->angle);
+				memcpy(inst->matrix.m, d->matrixFacingDir.m, sizeof(inst->matrix.m));
+				int screenOffsetY = CTR_MipsSra(CTR_MipsMulLo((s8)d->Screen_OffsetY, 3), 3);
+				inst->matrix.t[0] = CTR_MipsSra(d->posCurr.x, 8);
+				inst->matrix.t[1] = CTR_MipsAddLo(CTR_MipsSra(d->posCurr.y, 8), screenOffsetY);
+				inst->matrix.t[2] = CTR_MipsSra(d->posCurr.z, 8);
+				inst->scale.x = 0xccc;
+				inst->scale.y = 0xccc;
+				inst->scale.z = 0xccc;
+			}
+		}
+	}
 }
 
 static void NativeAdhoc_LogSessionMismatch(const struct NativeAdhocSessionPacket *packet, const struct GameTracker *gGT)
@@ -2053,6 +2458,659 @@ static void NativeAdhoc_CheckHostHash(u32 frame, u32 hostHash)
 	s_nativeAdhoc.pendingHostHashFrame = frame;
 	s_nativeAdhoc.pendingHostHash = hostHash;
 	s_nativeAdhoc.pendingHostHashValid = 1;
+}
+
+static void NativeAdhoc_FillDriverStateEntry(struct NativeAdhocDriverStateEntry *entry, const struct Driver *d)
+{
+	if ((entry == NULL) || (d == NULL))
+	{
+		return;
+	}
+	memset(entry, 0, sizeof(*entry));
+	entry->driverID = d->driverID;
+	entry->kartState = (u8)d->kartState;
+	entry->numWumpas = d->numWumpas;
+	entry->heldItemID = (u8)d->heldItemID;
+	entry->numHeldItems = d->numHeldItems;
+	entry->lapIndex = d->lapIndex;
+	entry->simpTurnState = (s8)d->simpTurnState;
+	entry->matrixArray = (u8)d->matrixArray;
+	entry->squishTimer = (s16)d->squishTimer;
+	entry->burnTimer = (s16)d->burnTimer;
+	entry->matrixIndex = (u8)d->matrixIndex;
+	entry->hasTntOnHead = (d->instTntRecv != NULL) ? 1 : 0;
+	entry->speed = (s16)d->speed;
+	entry->speedApprox = (s16)d->speedApprox;
+	entry->reserves = d->reserves;
+	entry->fireSpeed = d->fireSpeed;
+	entry->fireSpeedCap = d->fireSpeedCap;
+	entry->angle = d->angle;
+	entry->rotCurr = d->rotCurr;
+	if (d->instSelf != NULL)
+	{
+		entry->animIndex = (s8)d->instSelf->animIndex;
+		entry->animFrame = (s16)d->instSelf->animFrame;
+		// If instSelf matrix is uninitialized identity matrix while facing direction should be spawn angle, ensure it matches
+		if (d->instSelf->matrix.m[0][0] == 0x1000 && d->instSelf->matrix.m[1][1] == 0x1000 && d->instSelf->matrix.m[0][1] == 0 && (d->rotCurr.y != 0 || d->angle != 0))
+		{
+			s16 norm[3] = {0, 0x1000, 0};
+			if (d->AxisAngle2_normalVec.y != 0)
+			{
+				norm[0] = d->AxisAngle2_normalVec.x;
+				norm[1] = d->AxisAngle2_normalVec.y;
+				norm[2] = d->AxisAngle2_normalVec.z;
+			}
+			VehPhysForce_RotAxisAngle((MATRIX *)&d->instSelf->matrix, norm, d->rotCurr.y != 0 ? d->rotCurr.y : d->angle);
+		}
+		memcpy(entry->matrix, d->instSelf->matrix.m, sizeof(entry->matrix));
+	}
+	else
+	{
+		memcpy(entry->matrix, d->matrixFacingDir.m, sizeof(entry->matrix));
+	}
+	entry->timeElapsedInRace = d->timeElapsedInRace;
+	entry->tireColor = d->tireColor;
+	if (d->instBubbleHold != NULL && d->instBubbleHold->thread != NULL)
+	{
+		struct Shield *s = (struct Shield *)d->instBubbleHold->thread->object;
+		entry->shieldType = (s != NULL && (s->flags & SHIELD_FLAG_BLUE)) ? 2 : 1;
+	}
+	else
+	{
+		entry->shieldType = 0;
+	}
+	entry->wheelRotation = d->wheelRotation;
+	entry->posCurr = d->posCurr;
+	entry->velocity = d->velocity;
+	entry->normalVec.x = d->normalVecUP.x;
+	entry->normalVec.y = d->normalVecUP.y;
+	entry->normalVec.z = d->normalVecUP.z;
+	entry->actionsFlagSet = d->actionsFlagSet;
+	entry->checkpoint = d->checkpoint;
+	entry->driverRank = d->driverRank;
+	entry->distanceToFinish_curr = d->distanceToFinish_curr;
+}
+
+static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStateEntry *entry, struct Driver *d)
+{
+	if ((entry == NULL) || (d == NULL))
+	{
+		return;
+	}
+
+	u8 oldState = d->kartState;
+	u8 newState = entry->kartState;
+	s16 oldSquish = d->squishTimer;
+	s16 newSquish = entry->squishTimer;
+	s16 oldBurn = d->burnTimer;
+	s16 newBurn = entry->burnTimer;
+
+	d->posCurr = entry->posCurr;
+	d->velocity = entry->velocity;
+	d->rotCurr = entry->rotCurr;
+	d->angle = entry->angle;
+	d->wheelRotation = entry->wheelRotation;
+	d->normalVecUP.x = entry->normalVec.x;
+	d->normalVecUP.y = entry->normalVec.y;
+	d->normalVecUP.z = entry->normalVec.z;
+	d->AxisAngle2_normalVec.x = entry->normalVec.x;
+	d->AxisAngle2_normalVec.y = (entry->normalVec.y != 0) ? entry->normalVec.y : 0x1000;
+	d->AxisAngle2_normalVec.z = entry->normalVec.z;
+	d->speed = entry->speed;
+	d->speedApprox = (entry->speedApprox != 0) ? entry->speedApprox : entry->speed;
+	d->simpTurnState = entry->simpTurnState;
+	d->reserves = entry->reserves;
+	d->fireSpeed = entry->fireSpeed;
+	d->fireSpeedCap = entry->fireSpeedCap;
+	d->actionsFlagSet = entry->actionsFlagSet;
+	d->kartState = entry->kartState;
+	d->heldItemID = (DriverHeldItem)entry->heldItemID;
+	d->numHeldItems = entry->numHeldItems;
+	d->numWumpas = entry->numWumpas;
+	d->lapIndex = entry->lapIndex;
+	d->checkpoint = entry->checkpoint;
+	d->driverRank = entry->driverRank;
+	d->distanceToFinish_curr = entry->distanceToFinish_curr;
+	d->tireColor = entry->tireColor;
+	d->squishTimer = entry->squishTimer;
+	d->burnTimer = entry->burnTimer;
+	d->matrixArray = entry->matrixArray;
+	d->matrixIndex = entry->matrixIndex;
+	d->timeElapsedInRace = entry->timeElapsedInRace;
+	if ((d->timeElapsedInRace == 0) && (sdata != NULL) && (sdata->gGT != NULL) && (sdata->gGT->elapsedEventTime > 0) && ((d->actionsFlagSet & ACTION_RACE_FINISHED) == 0))
+	{
+		d->timeElapsedInRace = sdata->gGT->elapsedEventTime;
+	}
+
+	// Trigger visual animations, sounds, and funcTable transitions when kart state changes
+	if (newState != oldState)
+	{
+		if (newState == KS_BLASTED && oldState != KS_BLASTED)
+		{
+			if (d->instSelf != NULL && d->instSelf->thread != NULL)
+			{
+				VehStuckProc_Tumble_Init(d->instSelf->thread, d);
+			}
+			if (d->instSelf != NULL)
+			{
+				PlaySound3D(0x4c, d->instSelf);
+			}
+			Voiceline_RequestPlayDriver(VEH_PICK_VOICELINE_COMMON_DAMAGE, d->driverID, VEH_PICK_VOICELINE_PRIORITY);
+		}
+		else if (newState == KS_SPINNING && oldState != KS_SPINNING)
+		{
+			if (d->instSelf != NULL && d->instSelf->thread != NULL)
+			{
+				VehPhysProc_SpinFirst_Init(d->instSelf->thread, d);
+			}
+			if (newSquish != 0)
+			{
+				OtherFX_Play_Echo(VEH_PICK_SOUND_SQUISH, 1, d->actionsFlagSet & ACTION_ENGINE_ECHO);
+				Voiceline_RequestPlayDriver(VEH_PICK_VOICELINE_SQUISH, d->driverID, VEH_PICK_VOICELINE_PRIORITY);
+			}
+			else
+			{
+				OtherFX_Play(0x56, 1);
+				Voiceline_RequestPlayDriver(VEH_PHYS_PROC_SPIN_VOICELINE_ID, d->driverID, VEH_PHYS_PROC_SPIN_VOICELINE_PRIORITY);
+			}
+		}
+		else if (newState == KS_MASK_GRABBED && oldState != KS_MASK_GRABBED)
+		{
+			if (d->instSelf != NULL && d->instSelf->thread != NULL)
+			{
+				VehStuckProc_MaskGrab_Init(d->instSelf->thread, d);
+			}
+		}
+		else if (newState == KS_NORMAL && (oldState == KS_BLASTED || oldState == KS_SPINNING || oldState == KS_MASK_GRABBED))
+		{
+			if (d->instSelf != NULL && d->instSelf->thread != NULL)
+			{
+				VehPhysProc_Driving_Init(d->instSelf->thread, d);
+			}
+		}
+	}
+
+	if (newSquish != 0 && oldSquish == 0)
+	{
+		OtherFX_Play_Echo(VEH_PICK_SOUND_SQUISH, 1, d->actionsFlagSet & ACTION_ENGINE_ECHO);
+		Voiceline_RequestPlayDriver(VEH_PICK_VOICELINE_SQUISH, d->driverID, VEH_PICK_VOICELINE_PRIORITY);
+	}
+	else if (newSquish == 0 && oldSquish != 0)
+	{
+		OtherFX_Play_Echo(VEH_PHYS_FORCE_SQUISH_RESTORE_SFX, 1, (d->actionsFlagSet & ACTION_ENGINE_ECHO) != 0);
+	}
+
+	if (newBurn != 0 && oldBurn == 0)
+	{
+		Voiceline_RequestPlayDriver(VEH_PICK_VOICELINE_COMMON_DAMAGE, d->driverID, VEH_PICK_VOICELINE_PRIORITY);
+	}
+
+	// Synchronize TNT crate on head
+	if (entry->hasTntOnHead && (d->instTntRecv == NULL) && (d->instSelf != NULL) && (sdata != NULL))
+	{
+		struct Instance *instCrate = INSTANCE_BirthWithThread(STATIC_CRATE_TNT, sdata->s_tnt1, SMALL, MINE, RB_TNT_ThTick_SitOnHead, sizeof(struct MineWeapon), 0);
+		if (instCrate != NULL)
+		{
+			instCrate->flags |= PIXEL_LOD;
+			if (instCrate->thread != NULL)
+			{
+				instCrate->thread->funcThDestroy = PROC_DestroyInstance;
+				struct MineWeapon *tnt = (struct MineWeapon *)instCrate->thread->object;
+				if (tnt != NULL)
+				{
+					memset(tnt, 0, sizeof(struct MineWeapon));
+					tnt->driverTarget = d;
+					tnt->stopFallAtY = instCrate->matrix.t[1];
+				}
+			}
+			d->instTntRecv = instCrate;
+			PlaySound3D(0x50, instCrate);
+		}
+	}
+	else if (!entry->hasTntOnHead && (d->instTntRecv != NULL))
+	{
+		d->instTntRecv->scale.x = 0;
+		d->instTntRecv->scale.y = 0;
+		d->instTntRecv->scale.z = 0;
+		d->instTntRecv->flags |= HIDE_MODEL;
+		if (d->instTntRecv->thread != NULL)
+		{
+			d->instTntRecv->thread->flags |= THREAD_FLAG_DEAD;
+		}
+		d->instTntRecv = NULL;
+	}
+
+	if (d->instSelf != NULL)
+	{
+		struct Instance *inst = d->instSelf;
+
+		// Make sure kart model is visible and clear water-clipping flag
+		inst->flags &= ~(HIDE_MODEL | SPLIT_LINE);
+
+		// Synchronize character animation pose
+		inst->animIndex = (s16)entry->animIndex;
+		inst->animFrame = entry->animFrame;
+
+		// Check if host sent valid non-identity matrix, or if before green light
+		int isIdentity = (entry->matrix[0][0] == 0x1000 && entry->matrix[1][1] == 0x1000 && entry->matrix[2][2] == 0x1000 && entry->matrix[0][1] == 0 && entry->matrix[0][2] == 0);
+		s32 tLights = (sdata != NULL && sdata->gGT != NULL) ? sdata->gGT->trafficLightsTimer : 0;
+
+		// Set authoritative 3D orientation directly from host matrix
+		if ((entry->matrix[0][0] != 0 || entry->matrix[1][1] != 0 || entry->matrix[2][2] != 0) && (!isIdentity || tLights <= 0))
+		{
+			memcpy(inst->matrix.m, entry->matrix, sizeof(inst->matrix.m));
+			memcpy(d->matrixFacingDir.m, entry->matrix, sizeof(d->matrixFacingDir.m));
+		}
+		else
+		{
+			s16 norm[3] = {0, 0x1000, 0};
+			if (d->AxisAngle2_normalVec.y != 0)
+			{
+				norm[0] = d->AxisAngle2_normalVec.x;
+				norm[1] = d->AxisAngle2_normalVec.y;
+				norm[2] = d->AxisAngle2_normalVec.z;
+			}
+			VehPhysForce_RotAxisAngle(&d->matrixFacingDir, norm, d->rotCurr.y != 0 ? d->rotCurr.y : d->angle);
+			memcpy(inst->matrix.m, d->matrixFacingDir.m, sizeof(inst->matrix.m));
+		}
+
+		// Set authoritative 3D position
+		int screenOffsetY = CTR_MipsSra(CTR_MipsMulLo((s8)d->Screen_OffsetY, 3), 3);
+		inst->matrix.t[0] = CTR_MipsSra(d->posCurr.x, 8);
+		inst->matrix.t[1] = CTR_MipsAddLo(CTR_MipsSra(d->posCurr.y, 8), screenOffsetY);
+		inst->matrix.t[2] = CTR_MipsSra(d->posCurr.z, 8);
+
+		// Set instance scale (squished kart flattens y to 0 and widens x/z)
+		inst->scale.x = (d->squishTimer != 0) ? 0x1000 : 0xccc;
+		inst->scale.y = (d->squishTimer != 0) ? 0 : 0xccc;
+		inst->scale.z = (d->squishTimer != 0) ? 0x1000 : 0xccc;
+	}
+
+	// Synchronize Mask state (Aku Aku / Uka Uka)
+	b32 hostHasMask = (entry->actionsFlagSet & ACTION_MASK_WEAPON) != 0;
+	b32 clientHasMask = false;
+	struct Thread *maskTh = NULL;
+	if (d->instSelf != NULL && d->instSelf->thread != NULL)
+	{
+		for (struct Thread *ct = d->instSelf->thread->childThread; ct != NULL; ct = ct->siblingThread)
+		{
+			if ((u32)(ct->modelIndex - STATIC_AKUAKU) < MASK_MODEL_COUNT)
+			{
+				clientHasMask = true;
+				maskTh = ct;
+				break;
+			}
+		}
+	}
+	if (hostHasMask && !clientHasMask)
+	{
+		VehPickupItem_MaskUseWeapon(d, true);
+	}
+	else if (!hostHasMask)
+	{
+		if (clientHasMask && maskTh != NULL)
+		{
+			struct MaskHeadWeapon *mask = (struct MaskHeadWeapon *)maskTh->object;
+			if (mask != NULL && mask->maskBeamInst != NULL)
+			{
+				INSTANCE_Death(mask->maskBeamInst);
+				mask->maskBeamInst = NULL;
+			}
+			maskTh->flags |= THREAD_FLAG_DEAD;
+		}
+	}
+
+	// Synchronize Turbo exhaust flames for remote drivers
+	struct GameTracker *gGT = sdata != NULL ? sdata->gGT : NULL;
+	if (gGT != NULL && (d->driverID != NativeAdhoc_GetLocalPlayerIndex()))
+	{
+		b32 shouldHaveTurbo = (entry->reserves > 0) || (entry->fireSpeed > 0) || ((entry->actionsFlagSet & (ACTION_NEW_BOOST | ACTION_TURBO_ITEM)) != 0);
+		struct Thread *turboTh = NULL;
+		for (struct Thread *th = gGT->threadBuckets[TURBO].thread; th != NULL; th = th->siblingThread)
+		{
+			if (((struct Turbo *)th->object)->driver == d)
+			{
+				turboTh = th;
+				break;
+			}
+		}
+		if (shouldHaveTurbo && (turboTh == NULL) && (d->instSelf != NULL) && (d->instSelf->thread != NULL))
+		{
+			VehFire_Increment(d, entry->reserves > 0 ? entry->reserves : 30, 0, entry->fireSpeedCap);
+		}
+		else if (!shouldHaveTurbo && (turboTh != NULL))
+		{
+			turboTh->flags |= THREAD_FLAG_DEAD;
+		}
+	}
+
+	// Synchronize Shield state
+	if (entry->shieldType != 0 && d->instBubbleHold == NULL)
+	{
+		VehPickupItem_ShootNow(d, WEAPON_ID_SHIELD, SHOOT_NOW_NO_FLAGS);
+	}
+	else if (entry->shieldType == 0 && d->instBubbleHold != NULL)
+	{
+		if (d->instBubbleHold->thread != NULL)
+		{
+			d->instBubbleHold->thread->flags |= THREAD_FLAG_DEAD;
+		}
+		d->instBubbleHold = NULL;
+	}
+}
+
+static void NativeAdhoc_SendDriverState(const struct GameTracker *gGT)
+{
+	struct NativeAdhocDriverStatePacket packet;
+	if ((gGT == NULL) || !s_nativeAdhoc.peerKnown || !s_nativeAdhoc.simulationActive)
+	{
+		return;
+	}
+
+	if (s_nativeAdhoc.role != NATIVE_ADHOC_ROLE_HOST)
+	{
+		return;
+	}
+
+	memset(&packet, 0, sizeof(packet));
+	NativeAdhoc_InitHeader(&packet.header, NATIVE_ADHOC_PACKET_DRIVER_STATE);
+	packet.sessionId = s_nativeAdhoc.sessionId;
+	packet.simulationFrame = s_nativeAdhoc.simulationFrame;
+	packet.trafficLightsTimer = gGT->trafficLightsTimer;
+	packet.elapsedEventTime = gGT->elapsedEventTime;
+	packet.gameMode1 = gGT->gameMode1;
+	packet.driverCount = 8;
+	for (int i = 0; i < 8; i++)
+	{
+		packet.drivers[i].driverID = 0xFF; // Inactive slot
+		if (gGT->drivers[i] != NULL)
+		{
+			NativeAdhoc_FillDriverStateEntry(&packet.drivers[i], gGT->drivers[i]);
+		}
+	}
+
+	// Populate broken crates mask from level instances
+	if (gGT->level1 != NULL && gGT->level1->ptrInstDefs != NULL)
+	{
+		int numInst = gGT->level1->numInstances;
+		if (numInst > 128)
+		{
+			numInst = 128;
+		}
+		for (int i = 0; i < numInst; i++)
+		{
+			struct InstDef *def = &gGT->level1->ptrInstDefs[i];
+			if (def->ptrInstance != NULL)
+			{
+				if (def->ptrInstance->scale.x < 0x1000)
+				{
+					packet.brokenCratesMask[i / 32] |= (1u << (i % 32));
+				}
+			}
+		}
+	}
+
+	// Populate active tracking, mine, and projectile world items (missiles, bombs, potions, TNT, Nitro, warpballs, thrown shields)
+	packet.itemCount = 0;
+	const int bucketsToScan[] = {TRACKING, MINE, OTHER};
+	for (int b = 0; b < 3; b++)
+	{
+		struct Thread *th = gGT->threadBuckets[bucketsToScan[b]].thread;
+		for (; th != NULL && packet.itemCount < NATIVE_ADHOC_MAX_WORLD_ITEMS; th = th->siblingThread)
+		{
+			if (th->inst != NULL && th->inst->model != NULL && ((th->flags & THREAD_FLAG_DEAD) == 0) && ((th->inst->flags & HIDE_MODEL) == 0))
+			{
+				u8 mId = (u8)th->inst->model->id;
+				// In OTHER bucket, only replicate projectile weapons (bombs, thrown shields)
+				if (bucketsToScan[b] == OTHER && mId != DYNAMIC_BOMB && mId != DYNAMIC_SHIELD && mId != DYNAMIC_SHIELD_GREEN)
+				{
+					continue;
+				}
+				struct NativeAdhocWorldItem *item = &packet.items[packet.itemCount++];
+				item->modelID = mId;
+				item->flags = 1;
+				item->posX = (s16)th->inst->matrix.t[0];
+				item->posY = (s16)th->inst->matrix.t[1];
+				item->posZ = (s16)th->inst->matrix.t[2];
+				item->rotY = (s16)((th->inst->matrix.m[0][0] != 0 || th->inst->matrix.m[2][2] != 0) ? ratan2(th->inst->matrix.m[0][2], th->inst->matrix.m[2][2]) : 0);
+			}
+		}
+	}
+
+	NativeAdhoc_SendToPeers(&packet, sizeof(packet));
+}
+
+static void NativeAdhoc_HandleDriverState(const struct NativeAdhocDriverStatePacket *packet)
+{
+	struct GameTracker *gGT = sdata != NULL ? sdata->gGT : NULL;
+	if ((packet == NULL) || (gGT == NULL) || !s_nativeAdhoc.simulationActive)
+	{
+		return;
+	}
+
+	if (s_nativeAdhoc.role != NATIVE_ADHOC_ROLE_CLIENT)
+	{
+		return;
+	}
+
+	gGT->trafficLightsTimer = packet->trafficLightsTimer;
+	gGT->elapsedEventTime = packet->elapsedEventTime;
+	gGT->gameMode1 = (gGT->gameMode1 & ~(START_OF_RACE | END_OF_RACE)) | (packet->gameMode1 & (START_OF_RACE | END_OF_RACE));
+
+	// If the race is no longer in intro (countdown or active race),
+	// ensure the client definitely has race HUD enabled and camera intro completed.
+	if ((packet->gameMode1 & START_OF_RACE) == 0)
+	{
+		gGT->hudFlags |= HUD_FLAG_RACE_HUD;
+		for (int c = 0; c < 4; c++)
+		{
+			gGT->cameraDC[c].transitionFrame = 0;
+		}
+	}
+
+	for (u32 i = 0; i < packet->driverCount; i++)
+	{
+		const struct NativeAdhocDriverStateEntry *entry = &packet->drivers[i];
+		if (entry->driverID >= 8)
+		{
+			continue;
+		}
+
+		struct Driver *d = gGT->drivers[entry->driverID];
+		if (d == NULL)
+		{
+			continue;
+		}
+
+		NativeAdhoc_ApplyDriverStateEntry(entry, d);
+	}
+
+	// Synchronize broken crates from authoritative host state
+	if (gGT->level1 != NULL && gGT->level1->ptrInstDefs != NULL)
+	{
+		int numInst = gGT->level1->numInstances;
+		if (numInst > 128)
+		{
+			numInst = 128;
+		}
+		for (int i = 0; i < numInst; i++)
+		{
+			struct InstDef *def = &gGT->level1->ptrInstDefs[i];
+			if (def->ptrInstance != NULL)
+			{
+				struct Instance *crateInst = def->ptrInstance;
+				b32 hostBroken = (packet->brokenCratesMask[i / 32] & (1u << (i % 32))) != 0;
+				b32 clientSolid = (crateInst->scale.x >= 0x1000);
+				b32 clientBroken = (crateInst->scale.x == 0);
+
+				if (hostBroken && clientSolid)
+				{
+					int color = (def->modelID == PU_FRUIT_CRATE) ? 0xf2953a0 : 0xfafafa0;
+					RB_CrateAny_ExplodeInit(crateInst, color, true, true);
+				}
+				else if (!hostBroken && clientBroken)
+				{
+					crateInst->scale.x = 0x1000;
+					crateInst->scale.y = 0x1000;
+					crateInst->scale.z = 0x1000;
+				}
+			}
+		}
+	}
+
+	// Local player crate proximity collision for immediate 0ms response
+	int localPlyr = NativeAdhoc_GetLocalPlayerIndex();
+	struct Driver *ld = (localPlyr >= 0 && localPlyr < 8) ? gGT->drivers[localPlyr] : NULL;
+	if (ld != NULL && gGT->level1 != NULL && gGT->level1->ptrInstDefs != NULL)
+	{
+		int kx = ld->posCurr.x >> 8;
+		int ky = ld->posCurr.y >> 8;
+		int kz = ld->posCurr.z >> 8;
+		for (int i = 0; i < gGT->level1->numInstances; i++)
+		{
+			struct InstDef *def = &gGT->level1->ptrInstDefs[i];
+			if (def->ptrInstance != NULL && def->ptrInstance->scale.x >= 0x1000)
+			{
+				int dx = kx - def->ptrInstance->matrix.t[0];
+				int dy = ky - def->ptrInstance->matrix.t[1];
+				int dz = kz - def->ptrInstance->matrix.t[2];
+				if ((dx > -75 && dx < 75) && (dz > -75 && dz < 75) && (dy > -90 && dy < 90))
+				{
+					int color = (def->modelID == PU_FRUIT_CRATE) ? 0xf2953a0 : 0xfafafa0;
+					RB_CrateAny_ExplodeInit(def->ptrInstance, color, true, true);
+					if (def->modelID == PU_RANDOM_CRATE && ld->heldItemID == HELD_ITEM_NONE)
+					{
+						ld->heldItemID = HELD_ITEM_ROULETTE;
+						ld->itemRollTimer = FPS_DOUBLE(90);
+					}
+					else if (def->modelID == PU_FRUIT_CRATE)
+					{
+						ld->numWumpas += 5;
+						if (ld->numWumpas > 10) ld->numWumpas = 10;
+					}
+				}
+			}
+		}
+	}
+
+	// Synchronize world items (missiles, bombs, potions, TNT, Nitro, warpball, thrown shields)
+	b32 hasWarpball = false;
+	for (u8 i = 0; i < packet->itemCount && i < NATIVE_ADHOC_MAX_WORLD_ITEMS; i++)
+	{
+		const struct NativeAdhocWorldItem *item = &packet->items[i];
+		struct Thread *th = s_clientWorldItemThreads[i];
+
+		if (th == NULL || (th->flags & THREAD_FLAG_DEAD) != 0 || th->modelIndex != item->modelID)
+		{
+			if (th != NULL)
+			{
+				if (th->inst != NULL &&
+				    (th->modelIndex == DYNAMIC_BOMB || th->modelIndex == DYNAMIC_ROCKET || th->modelIndex == DYNAMIC_WARPBALL))
+				{
+					PlaySound3D(th->modelIndex == DYNAMIC_BOMB ? 0x49 : 0x4c, th->inst);
+					RB_Burst_Init(th->inst);
+				}
+				th->flags |= THREAD_FLAG_DEAD;
+				s_clientWorldItemThreads[i] = NULL;
+			}
+			if (item->modelID < (u8)len(gGT->modelPtr))
+			{
+				struct Model *m = gGT->modelPtr[item->modelID];
+				if (m != NULL)
+				{
+					th = PROC_BirthWithObject(SIZE_RELATIVE_POOL_BUCKET(sizeof(struct TrackerWeapon), NONE, MEDIUM, OTHER), NULL, "net_item", NULL);
+					if (th != NULL)
+					{
+						if (th->object != NULL)
+						{
+							memset(th->object, 0, sizeof(struct TrackerWeapon));
+						}
+						th->modelIndex = item->modelID;
+						th->funcThDestroy = PROC_DestroyInstance;
+						struct Instance *inst = INSTANCE_Birth3D(m, "net_item", th);
+						th->inst = inst;
+						if (inst != NULL)
+						{
+							if (item->modelID == DYNAMIC_SHIELD || item->modelID == DYNAMIC_SHIELD_GREEN)
+							{
+								inst->scale.x = 0x400;
+								inst->scale.y = 0x400;
+								inst->scale.z = 0x400;
+								inst->alphaScale = 0x400;
+								PlaySound3D(0x59, inst);
+							}
+							else
+							{
+								inst->scale.x = 0x1000;
+								inst->scale.y = 0x1000;
+								inst->scale.z = 0x1000;
+								if (item->modelID == DYNAMIC_WARPBALL)
+								{
+									PlaySound3D(0x4d, inst); // Launch blast
+								}
+								else if (item->modelID == DYNAMIC_ROCKET)
+								{
+									PlaySound3D(0x4a, inst);
+								}
+								else if (item->modelID == DYNAMIC_BOMB)
+								{
+									PlaySound3D(0x47, inst); // Bomb launch sound
+								}
+								else if ((item->modelID == STATIC_CRATE_TNT) || (item->modelID == STATIC_CRATE_NITRO) || (item->modelID == PU_EXPLOSIVE_CRATE))
+								{
+									PlaySound3D(0x52, inst);
+								}
+								else if ((item->modelID == STATIC_BEAKER_GREEN) || (item->modelID == STATIC_BEAKER_RED))
+								{
+									PlaySound3D(0x48, inst);
+								}
+							}
+						}
+						s_clientWorldItemThreads[i] = th;
+					}
+				}
+			}
+		}
+
+		if (th != NULL && th->inst != NULL && ((th->flags & THREAD_FLAG_DEAD) == 0))
+		{
+			struct Instance *inst = th->inst;
+			inst->flags &= ~HIDE_MODEL;
+			inst->matrix.t[0] = item->posX;
+			inst->matrix.t[1] = item->posY;
+			inst->matrix.t[2] = item->posZ;
+			s16 norm[3] = {0, 0x1000, 0};
+			VehPhysForce_RotAxisAngle(&inst->matrix, norm, item->rotY);
+			if (item->modelID == DYNAMIC_WARPBALL)
+			{
+				hasWarpball = true;
+				PlaySound3D_Flags(&s_clientWarpballSound, 0x4e, inst); // Travel loop sound
+			}
+		}
+	}
+
+	for (u8 i = packet->itemCount; i < NATIVE_ADHOC_MAX_WORLD_ITEMS; i++)
+	{
+		if (s_clientWorldItemThreads[i] != NULL)
+		{
+			if (s_clientWorldItemThreads[i]->inst != NULL &&
+			    (s_clientWorldItemThreads[i]->modelIndex == DYNAMIC_BOMB ||
+			     s_clientWorldItemThreads[i]->modelIndex == DYNAMIC_ROCKET ||
+			     s_clientWorldItemThreads[i]->modelIndex == DYNAMIC_WARPBALL))
+			{
+				PlaySound3D(s_clientWorldItemThreads[i]->modelIndex == DYNAMIC_BOMB ? 0x49 : 0x4c, s_clientWorldItemThreads[i]->inst);
+				RB_Burst_Init(s_clientWorldItemThreads[i]->inst);
+			}
+			s_clientWorldItemThreads[i]->flags |= THREAD_FLAG_DEAD;
+			s_clientWorldItemThreads[i] = NULL;
+		}
+	}
+
+	if (!hasWarpball && s_clientWarpballSound != 0)
+	{
+		OtherFX_RecycleMute(&s_clientWarpballSound);
+		s_clientWarpballSound = 0;
+	}
 }
 
 static void NativeAdhoc_SendSnapshotBegin(void)
@@ -2454,7 +3512,7 @@ static int NativeAdhoc_PacketSessionMatches(u32 sessionId)
 
 static void NativeAdhoc_ReceivePackets(void)
 {
-	u8 buffer[sizeof(struct NativeAdhocSnapshotChunkPacket)];
+	u8 buffer[NATIVE_ADHOC_MAX_PACKET_SIZE];
 
 	if (s_nativeAdhoc.socket < 0)
 	{
@@ -2499,9 +3557,39 @@ static void NativeAdhoc_ReceivePackets(void)
 
 		if (len <= 0)
 		{
+#ifdef _WIN32
+			int err = WSAGetLastError();
+			if (err == WSAECONNRESET || err == WSAEINTR)
+			{
+				continue;
+			}
+#endif
 			break;
 		}
 #endif
+
+		if (s_nativeAdhocRelayActive && (s_nativeAdhocNetType == NATIVE_ADHOC_NET_ONLINE))
+		{
+			if (len < 6)
+			{
+				continue;
+			}
+			if (memcmp(buffer, s_nativeAdhocRelayRoomCode, 4) != 0)
+			{
+				continue;
+			}
+			u8 senderSlot = buffer[4];
+			if (senderSlot > 3)
+			{
+				continue;
+			}
+			src.sin_family = AF_INET;
+			src.sin_addr = s_nativeAdhocRelayNetAddr.sin_addr;
+			src.sin_port = htons(NATIVE_ADHOC_PORT + senderSlot);
+
+			len -= 6;
+			memmove(buffer, buffer + 6, len);
+		}
 
 		struct NativeAdhocPacketHeader *header = (struct NativeAdhocPacketHeader *)buffer;
 		if (!NativeAdhoc_IsPacketHeaderValid(header, len))
@@ -2542,7 +3630,17 @@ static void NativeAdhoc_ReceivePackets(void)
 				}
 				s_nativeAdhoc.gameMode = packet->gameMode;
 				s_nativeAdhoc.sessionId = packet->sessionId;
-				s_nativeAdhoc.localPlayerIndex = packet->assignedPlayerIndex;
+#ifndef __vita__
+				if (s_nativeAdhocRelayActive && (s_nativeAdhocNetType == NATIVE_ADHOC_NET_ONLINE))
+				{
+					// Authoritative local player index for online mode comes from lobby room slot (1..3)
+					s_nativeAdhoc.localPlayerIndex = s_nativeAdhocRelaySlot;
+				}
+				else
+#endif
+				{
+					s_nativeAdhoc.localPlayerIndex = packet->assignedPlayerIndex;
+				}
 				s_nativeAdhoc.roomPlayerCount = packet->totalPlayers;
 				NativeAdhoc_ApplyHostSessionSettings(packet);
 				NativeAdhoc_SetPeer(&src);
@@ -2563,11 +3661,25 @@ static void NativeAdhoc_ReceivePackets(void)
 		}
 		else
 		{
-			if (!s_nativeAdhoc.peerKnown || !NativeAdhoc_AddrEqual(&src, &s_nativeAdhoc.peerMac))
+#ifndef __vita__
+			if (s_nativeAdhocRelayActive && (s_nativeAdhocNetType == NATIVE_ADHOC_NET_ONLINE))
 			{
-				continue;
+				// In online relay mesh, accept packets from any valid player in the room sent via relay server IP
+				if (!s_nativeAdhoc.peerKnown || (src.sin_addr.s_addr != s_nativeAdhocRelayNetAddr.sin_addr.s_addr))
+				{
+					continue;
+				}
+				s_nativeAdhoc.lastPeerTime = NativeAdhoc_Now();
 			}
-			s_nativeAdhoc.lastPeerTime = NativeAdhoc_Now();
+			else
+#endif
+			{
+				if (!s_nativeAdhoc.peerKnown || !NativeAdhoc_AddrEqual(&src, &s_nativeAdhoc.peerMac))
+				{
+					continue;
+				}
+				s_nativeAdhoc.lastPeerTime = NativeAdhoc_Now();
+			}
 		}
 
 		if ((header->type == NATIVE_ADHOC_PACKET_MENU_INPUT) && (len == (int)sizeof(struct NativeAdhocMenuInputPacket)))
@@ -2614,6 +3726,17 @@ static void NativeAdhoc_ReceivePackets(void)
 			int fromPlayer = packet->playerIndex;
 			if ((fromPlayer >= 0) && (fromPlayer < 4) && (fromPlayer != NativeAdhoc_GetLocalPlayerIndex()))
 			{
+				if (packet->count > 0)
+				{
+					if (!s_hasLatestClientPad[fromPlayer] || (packet->inputs[0].frame >= s_latestClientFrame[fromPlayer]) ||
+					    ((s_latestClientFrame[fromPlayer] - packet->inputs[0].frame) > 0x80000000u))
+					{
+						s_latestClientPad[fromPlayer] = packet->inputs[0].pad;
+						s_latestClientPad[fromPlayer].connected = 1;
+						s_latestClientFrame[fromPlayer] = packet->inputs[0].frame;
+						s_hasLatestClientPad[fromPlayer] = 1;
+					}
+				}
 				for (u32 i = 0; i < packet->count; i++)
 				{
 					NativeAdhoc_StoreInput(fromPlayer, packet->inputs[i].frame, &packet->inputs[i].pad);
@@ -2639,6 +3762,7 @@ static void NativeAdhoc_ReceivePackets(void)
 				{
 					s_nativeAdhoc.peers[pIndex].raceProposalChar = packet->characterID;
 					s_nativeAdhoc.peers[pIndex].raceProposalValid = 1;
+					data.characterIDs[pIndex + 1] = (s16)packet->characterID;
 				}
 			}
 			continue;
@@ -2650,9 +3774,7 @@ static void NativeAdhoc_ReceivePackets(void)
 			if ((s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_CLIENT) && NativeAdhoc_PacketSessionMatches(packet->sessionId) && (packet->build == BUILD))
 			{
 				int myIdx = NativeAdhoc_GetLocalPlayerIndex();
-				u8 myExpectedChar = (myIdx >= 0 && myIdx < 4) ? (u8)data.characterIDs[myIdx] : 0;
 				if ((packet->numPlayers >= 2 && packet->numPlayers <= 4) &&
-					(packet->characters[myIdx] == myExpectedChar) &&
 					NativeAdhoc_IsGameModeValid(packet->gameMode) &&
 					(packet->gameMode == s_nativeAdhoc.gameMode))
 				{
@@ -2662,12 +3784,12 @@ static void NativeAdhoc_ReceivePackets(void)
 					NativeAdhoc_ApplyRaceConfig(packet, sdata->gGT);
 					NativeAdhoc_SendRaceConfigAck(packet);
 					Platform_Log("[CTR Adhoc] Client accepted RACE_CONFIG and sent ACK (LEV=%d, myChar=%u)\n",
-					             packet->currLEV, myExpectedChar);
+					             packet->currLEV, packet->characters[myIdx]);
 				}
 				else
 				{
-					Platform_Log("[CTR Adhoc] rejected pre-load config P%d=%u expected=%u\n",
-					             myIdx + 1, packet->characters[myIdx], myExpectedChar);
+					Platform_Log("[CTR Adhoc] rejected pre-load config P%d numPlayers=%u gameMode=%u\n",
+					             myIdx + 1, packet->numPlayers, packet->gameMode);
 				}
 			}
 			continue;
@@ -2770,8 +3892,22 @@ static void NativeAdhoc_ReceivePackets(void)
 			struct NativeAdhocDesyncPacket *packet = (struct NativeAdhocDesyncPacket *)buffer;
 			if ((s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST) && NativeAdhoc_PacketSessionMatches(packet->sessionId))
 			{
-				Platform_Log("[CTR Adhoc] Peer desync reported at frame %u (host=0x%08x client=0x%08x) - skipping heavy resync to preserve race flow\n",
+				Platform_Log("[CTR Adhoc] Peer desync reported at frame %u (host=0x%08x client=0x%08x) - broadcasting authoritative driver state resync\n",
 				             packet->frame, packet->hostHash, packet->clientHash);
+				if (sdata != NULL && sdata->gGT != NULL)
+				{
+					NativeAdhoc_SendDriverState(sdata->gGT);
+				}
+			}
+			continue;
+		}
+
+		if ((header->type == NATIVE_ADHOC_PACKET_DRIVER_STATE) && (len >= (int)(sizeof(struct NativeAdhocPacketHeader) + 8)))
+		{
+			struct NativeAdhocDriverStatePacket *packet = (struct NativeAdhocDriverStatePacket *)buffer;
+			if (NativeAdhoc_PacketSessionMatches(packet->sessionId))
+			{
+				NativeAdhoc_HandleDriverState(packet);
 			}
 			continue;
 		}
@@ -2904,6 +4040,16 @@ static void NativeAdhoc_ReceivePackets(void)
 		if ((header->type == NATIVE_ADHOC_PACKET_HEARTBEAT) && (len == (int)sizeof(struct NativeAdhocHeartbeatPacket)))
 		{
 			struct NativeAdhocHeartbeatPacket *packet = (struct NativeAdhocHeartbeatPacket *)buffer;
+			if ((s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_CLIENT) && (s_nativeAdhoc.status == NATIVE_ADHOC_STATUS_WAITING) && !s_nativeAdhoc.peerKnown)
+			{
+				// Host beacon received on LAN! Instantly send HELLO directly to host
+				struct NativeAdhocHelloPacket helloPkt;
+				memset(&helloPkt, 0, sizeof(helloPkt));
+				NativeAdhoc_InitHeader(&helloPkt.header, NATIVE_ADHOC_PACKET_HELLO);
+				helloPkt.clientId = s_nativeAdhoc.localClientId;
+				helloPkt.gameMode = (u8)s_nativeAdhoc.gameMode;
+				NativeAdhoc_SendRaw(&src, &helloPkt, sizeof(helloPkt));
+			}
 			if (!NativeAdhoc_PacketSessionMatches(packet->sessionId))
 			{
 				continue;
@@ -3146,7 +4292,14 @@ int NativeAdhoc_Begin(int role, int gameMode)
 	}
 
 	NativeAdhoc_ShutdownInternal(0);
-	NativeAdhoc_LoadCustomHostIp();
+	if (s_nativeAdhocNetType == NATIVE_ADHOC_NET_ONLINE)
+	{
+		NativeAdhoc_LoadCustomHostIp();
+	}
+	else
+	{
+		s_nativeAdhocCustomHostIp[0] = '\0';
+	}
 
 	gNativeForce30Fps = 1;
 	memset(&s_nativeAdhoc, 0, sizeof(s_nativeAdhoc));
@@ -3166,6 +4319,25 @@ int NativeAdhoc_Begin(int role, int gameMode)
 	{
 		s_nativeAdhoc.status = NATIVE_ADHOC_STATUS_ERROR;
 		return 0;
+	}
+
+	if (s_nativeAdhocRelayActive && (s_nativeAdhocNetType == NATIVE_ADHOC_NET_ONLINE))
+	{
+		if (s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST)
+		{
+			s_nativeAdhoc.localPlayerIndex = 0;
+			struct NativeAdhocHeartbeatPacket hb;
+			memset(&hb, 0, sizeof(hb));
+			NativeAdhoc_InitHeader(&hb.header, NATIVE_ADHOC_PACKET_HEARTBEAT);
+			hb.sessionId = s_nativeAdhoc.sessionId;
+			hb.totalPlayers = 1;
+			hb.lobbyStarted = 0;
+			NativeAdhoc_SendRaw(&s_nativeAdhocRelayNetAddr, &hb, sizeof(hb));
+		}
+		else
+		{
+			s_nativeAdhoc.localPlayerIndex = s_nativeAdhocRelaySlot;
+		}
 	}
 
 	return 1;
@@ -3370,6 +4542,7 @@ void NativeAdhoc_ShutdownImmediate(void)
 
 void NativeAdhoc_Update(void)
 {
+	NativeLobby_Update();
 	u32 now;
 
 #if defined(__vita__)
@@ -3402,6 +4575,19 @@ void NativeAdhoc_Update(void)
 
 	NativeAdhoc_ReceivePackets();
 	now = NativeAdhoc_Now();
+
+	if ((s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST) && (s_nativeAdhoc.status == NATIVE_ADHOC_STATUS_WAITING) &&
+		((u32)(now - s_nativeAdhoc.lastHeartbeatTime) >= NATIVE_ADHOC_HEARTBEAT_INTERVAL_US))
+	{
+		struct NativeAdhocHeartbeatPacket hb;
+		memset(&hb, 0, sizeof(hb));
+		NativeAdhoc_InitHeader(&hb.header, NATIVE_ADHOC_PACKET_HEARTBEAT);
+		hb.sessionId = s_nativeAdhoc.sessionId;
+		hb.totalPlayers = (u8)(1 + s_nativeAdhoc.clientCount);
+		hb.lobbyStarted = (u8)s_nativeAdhoc.lobbyStarted;
+		NativeAdhoc_SendToLocalBroadcasts(&hb, sizeof(hb));
+		s_nativeAdhoc.lastHeartbeatTime = now;
+	}
 
 	if ((s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_CLIENT) && !s_nativeAdhoc.peerKnown &&
 		((u32)(now - s_nativeAdhoc.lastHelloTime) >= NATIVE_ADHOC_HELLO_INTERVAL_US))
@@ -3478,51 +4664,91 @@ void NativeAdhoc_ProcessPadSnapshots(struct PlatformInputPadSnapshot *pads, int 
 
 	if (s_nativeAdhoc.simulationActive)
 	{
-		u32 targetFrame = s_nativeAdhoc.simulationFrame + NATIVE_ADHOC_INPUT_DELAY;
-		if (!NativeAdhoc_GetInput(localIndex, targetFrame, NULL))
+		if (s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST)
 		{
-			NativeAdhoc_StoreInput(localIndex, targetFrame, &localPad);
-			s_nativeAdhoc.latestLocalInputFrame = targetFrame;
-			s_nativeAdhoc.latestLocalInputValid = 1;
-		}
-		NativeAdhoc_SendFrameInputs();
-
-		int allPlayersHaveInput = 1;
-		for (int i = 0; i < totalPlayers; i++)
-		{
-			struct PlatformInputPadSnapshot pi;
-			int havePi = NativeAdhoc_GetInput(i, s_nativeAdhoc.simulationFrame, &pi);
-			if (!havePi)
+			if (localIndex < count)
 			{
-				if ((s_nativeAdhoc.simulationFrame > 0) && (s_nativeAdhoc.extrapolatedFrames[i] < 3u) &&
-				    NativeAdhoc_GetInput(i, s_nativeAdhoc.simulationFrame - 1u, &pi))
+				pads[localIndex] = localPad;
+			}
+			NativeAdhoc_StoreInput(localIndex, s_nativeAdhoc.simulationFrame, &localPad);
+
+			u32 now = NativeAdhoc_Now();
+			for (int i = 0; i < totalPlayers; i++)
+			{
+				if (i == localIndex)
 				{
-					// Extrapolate previous frame's pad for up to 3 frames during Wi-Fi jitter spikes
-					NativeAdhoc_StoreInput(i, s_nativeAdhoc.simulationFrame, &pi);
-					s_nativeAdhoc.extrapolatedFrames[i]++;
-					havePi = 1;
+					continue;
+				}
+				int peerIdx = i - 1;
+				if ((peerIdx >= 0) && (peerIdx < NATIVE_ADHOC_MAX_PEERS))
+				{
+					if (!s_nativeAdhoc.peers[peerIdx].active || (s_nativeAdhoc.peers[peerIdx].lastTime != 0 && ((u32)(now - s_nativeAdhoc.peers[peerIdx].lastTime) > 1000000u)))
+					{
+						s_hasLatestClientPad[i] = 0;
+					}
+				}
+				if (s_hasLatestClientPad[i])
+				{
+					if (i < count)
+					{
+						pads[i] = s_latestClientPad[i];
+					}
 				}
 				else
 				{
-					NativeAdhoc_MakeNeutralPad(&pi);
-					allPlayersHaveInput = 0;
+					struct PlatformInputPadSnapshot pi;
+					if (NativeAdhoc_GetInput(i, s_nativeAdhoc.simulationFrame, &pi))
+					{
+						if (i < count)
+						{
+							pads[i] = pi;
+						}
+					}
+					else
+					{
+						if (i < count)
+						{
+							NativeAdhoc_MakeNeutralPad(&pads[i]);
+						}
+					}
 				}
 			}
-			else
-			{
-				s_nativeAdhoc.extrapolatedFrames[i] = 0;
-			}
-			if (i < count)
-			{
-				pads[i] = pi;
-			}
+			s_nativeAdhoc.installedFrame = s_nativeAdhoc.simulationFrame;
+			return;
 		}
+		else
+		{
+			u32 targetFrame = s_nativeAdhoc.simulationFrame;
+			NativeAdhoc_StoreInput(localIndex, targetFrame, &localPad);
+			s_nativeAdhoc.latestLocalInputFrame = targetFrame;
+			s_nativeAdhoc.latestLocalInputValid = 1;
+			NativeAdhoc_SendFrameInputs();
 
-		s_nativeAdhoc.installedFrame = allPlayersHaveInput ? s_nativeAdhoc.simulationFrame : NATIVE_ADHOC_INVALID_FRAME;
-		return;
+			if (localIndex < count)
+			{
+				pads[localIndex] = localPad;
+			}
+			s_nativeAdhoc.installedFrame = s_nativeAdhoc.simulationFrame;
+			return;
+		}
 	}
 
 	NativeAdhoc_SendMenuInput(&localPad);
+
+	// While waiting in pre-game menus (before the lobby has started),
+	// CTR's RECTMENU only reads pad slot 0. If localIndex > 0, do not overwrite
+	// pads[0] with remoteMenuPads[0], otherwise the local client will respond to the host's
+	// button presses and cancel out of the lobby when the host presses Cross to start!
+	if (!s_nativeAdhoc.lobbyStarted && !s_nativeAdhoc.simulationActive)
+	{
+		pads[0] = localPad;
+		for (int i = 1; i < count; i++)
+		{
+			NativeAdhoc_MakeNeutralPad(&pads[i]);
+		}
+		return;
+	}
+
 	if (localIndex < count)
 	{
 		pads[localIndex] = localPad;
@@ -3561,6 +4787,12 @@ void NativeAdhoc_NotifyLevelReady(struct GameTracker *gGT)
 	memset(s_nativeAdhoc.hashes, 0, sizeof(s_nativeAdhoc.hashes));
 	s_nativeAdhoc.nextHashSlot = 0;
 	NativeAdhoc_ClearInputRing();
+	memset(s_clientWorldItemThreads, 0, sizeof(s_clientWorldItemThreads));
+	if (s_clientWarpballSound != 0)
+	{
+		OtherFX_RecycleMute(&s_clientWarpballSound);
+		s_clientWarpballSound = 0;
+	}
 
 	Platform_Log("[CTR Adhoc] NotifyLevelReady: role=%d, levelID=%d, currLEV=%d, numPlyr=%d\n",
 	             s_nativeAdhoc.role, gGT->levelID, gGT->currLEV, gGT->numPlyrCurrGame);
@@ -3727,41 +4959,20 @@ int NativeAdhoc_BeginSimulationFrame(struct GameTracker *gGT)
 	{
 		return 0;
 	}
-	if (s_nativeAdhoc.installedFrame != s_nativeAdhoc.simulationFrame)
-	{
-		return 0;
-	}
 	gGT->elapsedTimeMS = 0x20;
 	return 1;
 }
 
 void NativeAdhoc_EndSimulationFrame(struct GameTracker *gGT)
 {
-	u32 frame;
-	u32 hash;
-
 	if (!s_nativeAdhoc.simulationActive || (gGT == NULL))
 	{
 		return;
 	}
 
-	frame = s_nativeAdhoc.simulationFrame;
-	if ((frame % NATIVE_ADHOC_HASH_INTERVAL) == 0)
+	if (s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST)
 	{
-		hash = NativeAdhoc_GameplayHash(gGT);
-		NativeAdhoc_SaveHash(frame, hash);
-		if (s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST)
-		{
-			NativeAdhoc_SendHash(frame, hash);
-		}
-		else if (s_nativeAdhoc.pendingHostHashValid && (s_nativeAdhoc.pendingHostHashFrame == frame))
-		{
-			if (hash != s_nativeAdhoc.pendingHostHash)
-			{
-				NativeAdhoc_SendDesync(frame, s_nativeAdhoc.pendingHostHash, hash);
-			}
-			s_nativeAdhoc.pendingHostHashValid = 0;
-		}
+		NativeAdhoc_SendDriverState(gGT);
 	}
 
 	s_nativeAdhoc.simulationFrame++;
@@ -3783,6 +4994,52 @@ int NativeAdhoc_IsSimulationActive(void)
 	return NativeAdhoc_IsConnected() && s_nativeAdhoc.simulationActive;
 }
 
+int NativeAdhoc_IsHost(void)
+{
+	return s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST;
+}
+
+int NativeAdhoc_IsClient(void)
+{
+	return s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_CLIENT;
+}
+
+int NativeAdhoc_ShouldSimulateDriverPhysics(int driverID)
+{
+	if (!NativeAdhoc_IsSimulationActive())
+	{
+		return 1;
+	}
+	return s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST;
+}
+
+int NativeAdhoc_ShouldRunBotAI(void)
+{
+	if (!NativeAdhoc_IsSimulationActive())
+	{
+		return 1;
+	}
+	return s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST;
+}
+
+int NativeAdhoc_ShouldProcessItemCollisions(void)
+{
+	if (!NativeAdhoc_IsSimulationActive())
+	{
+		return 1;
+	}
+	return s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST;
+}
+
+int NativeAdhoc_ShouldShootWeapon(int driverID)
+{
+	if (!NativeAdhoc_IsSimulationActive())
+	{
+		return 1;
+	}
+	return s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST;
+}
+
 int NativeAdhoc_IsDialogRunning(void)
 {
 	return s_nativeAdhoc.dialogRunning;
@@ -3799,7 +5056,7 @@ int NativeAdhoc_ShouldPresentDriver(int driverID)
 	{
 		return 1;
 	}
-	return driverID == NativeAdhoc_GetLocalPlayerIndex();
+	return 1;
 }
 
 int NativeAdhoc_ShouldPresentInteractionVoice(int speakerDriverID, int otherDriverID)
@@ -3810,8 +5067,7 @@ int NativeAdhoc_ShouldPresentInteractionVoice(int speakerDriverID, int otherDriv
 		return 1;
 	}
 
-	int localDriverID = NativeAdhoc_GetLocalPlayerIndex();
-	return (speakerDriverID == localDriverID) || (otherDriverID == localDriverID);
+	return 1;
 }
 
 int NativeAdhoc_ShouldReturnToMainMenu(void)
@@ -3977,7 +5233,14 @@ const char *NativeAdhoc_GetStatusText(void)
 			snprintf(s_adhocStatusCustomBuf, sizeof(s_adhocStatusCustomBuf), "SALA (%d/4) - AGUARDANDO JOGADORES", NativeAdhoc_GetPlayerCount());
 			return s_adhocStatusCustomBuf;
 		}
-		return text[NATIVE_ADHOC_TEXT_SEARCHING_HOST];
+		if (s_nativeAdhocNetType == NATIVE_ADHOC_NET_LOCAL)
+		{
+			return (cfg_language == 6) ? "BUSCANDO SALA (REDE LOCAL)..." : "SEARCHING ROOM (LOCAL LAN)...";
+		}
+		else
+		{
+			return (cfg_language == 6) ? "BUSCANDO SALA (ONLINE)..." : "SEARCHING ROOM (ONLINE)...";
+		}
 	case NATIVE_ADHOC_STATUS_CONNECTED:
 		if (s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST)
 		{
@@ -4004,9 +5267,9 @@ int NativeAdhoc_IsLobbyStarted(void)
 
 void NativeAdhoc_StartLobby(void)
 {
+	s_nativeAdhoc.lobbyStarted = 1;
 	if (s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST)
 	{
-		s_nativeAdhoc.lobbyStarted = 1;
 		for (int i = 0; i < 3; i++)
 		{
 			NativeAdhoc_SendHeartbeat();

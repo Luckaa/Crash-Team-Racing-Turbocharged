@@ -200,7 +200,7 @@ void Voiceline_RequestPlay(u32 voiceID, u32 characterID, u32 characterID2)
 		return;
 	}
 
-	if ((sdata->gGT->gameMode1 & END_OF_RACE) != 0)
+	if ((sdata == NULL) || (sdata->gGT == NULL) || ((sdata->gGT->gameMode1 & END_OF_RACE) != 0))
 	{
 		return;
 	}

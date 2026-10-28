@@ -350,6 +350,10 @@ void BOTS_Adv_AdjustDifficulty(void)
 
 	gGT->numBotsNextGame = 0;
 
+#if defined(CTR_NATIVE)
+	if (!NativeAdhoc_IsClient())
+	{
+#endif
 	if (((gameMode2 & CUP_ANY_KIND) == 0) || (gGT->cup.trackIndex == 0))
 	{
 		if (gGT->numPlyrCurrGame == 2)
@@ -461,6 +465,9 @@ void BOTS_Adv_AdjustDifficulty(void)
 		sdata->accelerateOrder[topAccelIndex] = sdata->accelerateOrder[bestDriverIndex];
 		sdata->accelerateOrder[bestDriverIndex] = topAccel;
 	}
+#if defined(CTR_NATIVE)
+	}
+#endif
 }
 
 #if defined(CTR_NATIVE)
@@ -611,6 +618,10 @@ void BOTS_SetRotation(struct Driver *bot, int useSpawnYaw)
 	NativePhysics_ResetDriver(bot);
 #endif
 	struct NavFrame *nf = bot->botData.botNavFrame;
+	if (nf == NULL)
+	{
+		return;
+	}
 
 	CTR_SET_VEC3(bot->botData.aiPhysics.velocity.v, 0, 0, 0);
 
@@ -721,6 +732,12 @@ void BOTS_LevInstColl(struct Thread *botThread)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8001372c-0x80013838.
 void BOTS_ThTick_RevEngine(struct Thread *botThread)
 {
+#if defined(CTR_NATIVE)
+	if (!NativeAdhoc_ShouldRunBotAI())
+	{
+		return;
+	}
+#endif
 	struct Driver *botDriver = (struct Driver *)botThread->object;
 	struct MaskHeadWeapon *mask = botDriver->botData.maskObj;
 
@@ -943,6 +960,12 @@ void BOTS_Killplane(struct Thread *botThread)
 
 void BOTS_ThTick_Drive(struct Thread *botThread)
 {
+#if defined(CTR_NATIVE)
+	if (!NativeAdhoc_ShouldRunBotAI())
+	{
+		return;
+	}
+#endif
 	struct ScratchpadStruct *sps = CTR_SCRATCHPAD_PTR(struct ScratchpadStruct, 0x108);
 	struct Driver *botDriver = (struct Driver *)botThread->object;     // iVar17
 	struct Instance *botInstance = (struct Instance *)botThread->inst; // iVar22
@@ -1168,7 +1191,10 @@ UpdateTireColorTimer:
 		if ((gGT->boolDemoMode != 0) && ((botDriver->botData.botFlags & BOT_FLAG_DEMO_CAMERA_STARTED) == 0) && (botThread->modelIndex == DYNAMIC_PLAYER))
 		{
 			botDriver->botData.botFlags |= BOT_FLAG_DEMO_CAMERA_STARTED;
-			CAM_EndOfRace(&gGT->cameraDC[botDriver->driverID], botDriver);
+			if (botDriver->driverID < 4)
+			{
+				CAM_EndOfRace(&gGT->cameraDC[botDriver->driverID], botDriver);
+			}
 		}
 
 		if ((botDriver->botData.botFlags & BOT_FLAG_STARTLINE_INIT_DONE) == 0)
@@ -3093,6 +3119,12 @@ u32 BOTS_ChangeState(struct Driver *driverVictim, int damageType, struct Driver 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80016ec8-0x8001702c
 void BOTS_CollideWithOtherAI(struct Driver *robot_1, struct Driver *robot_2)
 {
+#if defined(CTR_NATIVE)
+	if (!NativeAdhoc_ShouldRunBotAI())
+	{
+		return;
+	}
+#endif
 	// first determine which driver bumps forward and which bumps backwards
 	if (robot_1->driverRank < robot_2->driverRank)
 	{
@@ -3387,7 +3419,10 @@ void BOTS_Driver_Convert(struct Driver *d)
 
 	if ((oldActionFlagsSet & ACTION_RACE_FINISHED) != 0)
 	{
-		CAM_EndOfRace(&sdata->gGT->cameraDC[d->driverID], d);
+		if (d->driverID < 4)
+		{
+			CAM_EndOfRace(&sdata->gGT->cameraDC[d->driverID], d);
+		}
 	}
 
 	int damageType;

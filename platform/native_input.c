@@ -2,6 +2,7 @@
 
 #include <macros.h>
 #include "platform/native_adhoc.h"
+#include "platform/native_lobby_client.h"
 #include "psx/libpad.h"
 
 #include <SDL3/SDL.h>
@@ -1460,6 +1461,7 @@ void Platform_InputUpdate(void)
 	}
 
 	NativeAdhoc_Update();
+	NativeLobby_Update();
 
 	if (s_installedSnapshotsActive != 0)
 	{

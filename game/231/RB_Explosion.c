@@ -35,6 +35,11 @@ static const u32 s_potionShatterEmitter[] = {
 // NOTE(aalhendi): Native uses retail emitter bytes from 0x800b2d58.
 void RB_Explosion_InitPotion(struct Instance *inst)
 {
+	if (inst == NULL || inst->model == NULL || sdata == NULL || sdata->gGT == NULL)
+	{
+		return;
+	}
+
 	struct Instance *shatterInst;
 	struct Particle *p;
 	int shatterColor;
@@ -50,6 +55,10 @@ void RB_Explosion_InitPotion(struct Instance *inst)
 
 	// create thread for shatter
 	shatterInst = INSTANCE_BirthWithThread(shatterColor, 0, SMALL, OTHER, RB_Explosion_ThTick, 0, 0);
+	if (shatterInst == NULL || shatterInst->thread == NULL)
+	{
+		return;
+	}
 
 	shatterInst->flags |= (PIXEL_LOD | CUSTOM_MATRIX);
 
@@ -110,11 +119,20 @@ static char s_explosion1[] = "explosion1";
 // NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 231 0x800b1630-0x800b1714.
 void RB_Explosion_InitGeneric(struct Instance *inst)
 {
+	if (inst == NULL || inst->model == NULL)
+	{
+		return;
+	}
+
 	struct Instance *explosion;
 	u32 color;
 
 	// create thread for explosion
 	explosion = INSTANCE_BirthWithThread(STATIC_CRATE_EXPLOSION, s_explosion1, SMALL, OTHER, RB_Explosion_ThTick, 0, 0);
+	if (explosion == NULL || explosion->thread == NULL)
+	{
+		return;
+	}
 
 	// copy position and rotation from one instance to the other
 	CTR_MatrixCopyRot(&explosion->matrix, &inst->matrix);

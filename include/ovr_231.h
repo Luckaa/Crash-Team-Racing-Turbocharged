@@ -832,4 +832,6 @@ struct OverlayDATA_231
 extern struct OverlayRDATA_231 R231;
 extern struct OverlayDATA_231 D231;
 
+void RB_CrateAny_ExplodeInit(struct Instance *crateInst, int color, b32 randomizeRotation, int playSound);
+
 #endif

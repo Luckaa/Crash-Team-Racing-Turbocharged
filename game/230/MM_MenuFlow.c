@@ -11,6 +11,7 @@
 #include "platform/native_minimap.h"
 #if defined(CTR_NATIVE)
 #include "platform/native_adhoc.h"
+#include "platform/native_lobby_client.h"
 #include "platform/native_mp_test.h"
 #endif
 #endif
@@ -52,11 +53,35 @@ enum MMNativeExtraDifficultyConstants
 enum MMNativeAdhocMenuStage
 {
 	MM_NATIVE_ADHOC_STAGE_MAIN = 0,
+	MM_NATIVE_ADHOC_STAGE_NET,
 	MM_NATIVE_ADHOC_STAGE_MODE,
 	MM_NATIVE_ADHOC_STAGE_ROLE,
 	MM_NATIVE_ADHOC_STAGE_WAIT,
+	MM_NATIVE_ADHOC_STAGE_ONLINE_MENU,
+	MM_NATIVE_ADHOC_STAGE_ONLINE_BROWSER,
+	MM_NATIVE_ADHOC_STAGE_ONLINE_CODE_INPUT,
 	MM_NATIVE_ADHOC_STAGE_GAME_FLOW,
 	MM_NATIVE_ADHOC_MAIN_ROW = 6,
+};
+
+static const char *s_nativeAdhocNetLocalText[MM_NATIVE_LANGUAGE_COUNT] =
+{
+	"LAN",
+	"LAN",
+	"LAN",
+	"LAN",
+	"LAN",
+	"LAN",
+};
+
+static const char *s_nativeAdhocNetOnlineText[MM_NATIVE_LANGUAGE_COUNT] =
+{
+	"ONLINE",
+	"ONLINE",
+	"ONLINE",
+	"ONLINE",
+	"ONLINE",
+	"ONLINE",
 };
 
 static const char *s_nativeAdhocHostText[MM_NATIVE_LANGUAGE_COUNT] =
@@ -82,6 +107,7 @@ static const char *s_nativeAdhocJoinText[MM_NATIVE_LANGUAGE_COUNT] =
 static s16 s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_MAIN;
 static s16 s_nativeAdhocSuppressInputFrames;
 static s16 s_nativeAdhocGameMode = NATIVE_ADHOC_GAME_MODE_ARCADE;
+static s16 s_nativeAdhocNetChoice = NATIVE_ADHOC_NET_LOCAL;
 #endif
 
 static struct MenuRow s_nativeExtraDifficultyRows[MM_NATIVE_DIFFICULTY_COUNT + 1] =
@@ -114,9 +140,39 @@ static struct MenuRow s_nativeLanguageRows[MM_NATIVE_LANGUAGE_COUNT + 1] =
 };
 
 #if defined(CTR_NATIVE)
+static void MM_NativeAdhocNetProc(struct RectMenu *menu);
 static void MM_NativeAdhocModeProc(struct RectMenu *menu);
 static void MM_NativeAdhocRoleProc(struct RectMenu *menu);
 static void MM_NativeAdhocWaitProc(struct RectMenu *menu);
+static void MM_NativeAdhocOnlineProc(struct RectMenu *menu);
+static void MM_NativeAdhocBrowserProc(struct RectMenu *menu);
+static void MM_NativeAdhocCodeProc(struct RectMenu *menu);
+
+static struct MenuRow s_nativeAdhocNetRows[] =
+{
+	{LNG_NA_241, 0, 1, 0, 0},
+	{LNG_NA_242, 0, 1, 1, 1},
+	{.stringIndex = RECTMENU_STRING_NONE},
+};
+
+static struct MenuRow s_nativeAdhocOnlineRows[] =
+{
+	{NATIVE_MENU_STRING_ONLINE_CREATE, 0, 1, 0, 0},
+	{NATIVE_MENU_STRING_ONLINE_BROWSER, 0, 2, 1, 1},
+	{NATIVE_MENU_STRING_ONLINE_CODE, 1, 3, 2, 2},
+	{LNG_CANCEL, 2, 3, 3, 3},
+	{.stringIndex = RECTMENU_STRING_NONE},
+};
+
+static struct MenuRow s_nativeAdhocBrowserRows[NATIVE_LOBBY_MAX_ROOMS + 4];
+
+static struct MenuRow s_nativeAdhocCodeRows[] =
+{
+	{NATIVE_MENU_STRING_ONLINE_CODE_DISPLAY, 0, 1, 0, 0},
+	{NATIVE_MENU_STRING_ONLINE_JOIN, 0, 2, 1, 1},
+	{LNG_CANCEL, 1, 2, 2, 2},
+	{.stringIndex = RECTMENU_STRING_NONE},
+};
 
 static struct MenuRow s_nativeAdhocModeRows[] =
 {
@@ -143,6 +199,38 @@ static struct MenuRow s_nativeAdhocWaitRowsClient[] =
 {
 	{LNG_CANCEL, 0, 0, 0, 0},
 	{.stringIndex = RECTMENU_STRING_NONE},
+};
+
+static struct RectMenu s_nativeAdhocNetMenu =
+{
+	.stringIndexTitle = NATIVE_MENU_STRING_ADHOC,
+	.state = CENTER_ON_X | USE_SMALL_FONT | BIG_TEXT_IN_TITLE,
+	.rows = s_nativeAdhocNetRows,
+	.funcPtr = MM_NativeAdhocNetProc,
+};
+
+static struct RectMenu s_nativeAdhocOnlineMenu =
+{
+	.stringIndexTitle = NATIVE_MENU_STRING_ADHOC,
+	.state = CENTER_ON_X | USE_SMALL_FONT | BIG_TEXT_IN_TITLE,
+	.rows = s_nativeAdhocOnlineRows,
+	.funcPtr = MM_NativeAdhocOnlineProc,
+};
+
+static struct RectMenu s_nativeAdhocBrowserMenu =
+{
+	.stringIndexTitle = NATIVE_MENU_STRING_ONLINE_BROWSER,
+	.state = CENTER_ON_X | USE_SMALL_FONT | BIG_TEXT_IN_TITLE,
+	.rows = s_nativeAdhocBrowserRows,
+	.funcPtr = MM_NativeAdhocBrowserProc,
+};
+
+static struct RectMenu s_nativeAdhocCodeMenu =
+{
+	.stringIndexTitle = NATIVE_MENU_STRING_ONLINE_CODE,
+	.state = CENTER_ON_X | USE_SMALL_FONT | BIG_TEXT_IN_TITLE,
+	.rows = s_nativeAdhocCodeRows,
+	.funcPtr = MM_NativeAdhocCodeProc,
 };
 
 static struct RectMenu s_nativeAdhocModeMenu =
@@ -1032,6 +1120,80 @@ static s16 MM_NativeAdhocLanguageRow(void)
 	return 0;
 }
 
+static char s_onlineSearchCode[5] = "AAAA";
+static int s_onlineCodeCursor = 0;
+static const char s_onlineCodeCharset[] = "2345679ACDEFGHJKLMNPQRSTUVWXYZ";
+
+const char *MM_NativeAdhocGetCodeDisplayText(void)
+{
+	static char disp[64];
+	snprintf(disp, sizeof(disp), "CODIGO: %c%c%c %c%c%c %c%c%c %c%c%c",
+		(s_onlineCodeCursor == 0) ? '[' : ' ', s_onlineSearchCode[0], (s_onlineCodeCursor == 0) ? ']' : ' ',
+		(s_onlineCodeCursor == 1) ? '[' : ' ', s_onlineSearchCode[1], (s_onlineCodeCursor == 1) ? ']' : ' ',
+		(s_onlineCodeCursor == 2) ? '[' : ' ', s_onlineSearchCode[2], (s_onlineCodeCursor == 2) ? ']' : ' ',
+		(s_onlineCodeCursor == 3) ? '[' : ' ', s_onlineSearchCode[3], (s_onlineCodeCursor == 3) ? ']' : ' ');
+	return disp;
+}
+
+static void MM_NativeAdhocUpdateBrowserRows(void)
+{
+	int roomCount = NativeLobby_GetRoomCount();
+	if (roomCount <= 0)
+	{
+		s_nativeAdhocBrowserRows[0].stringIndex = NATIVE_MENU_STRING_ONLINE_NO_ROOMS | MENU_ROW_LOCKED;
+		s_nativeAdhocBrowserRows[0].rowOnPressUp = 0;
+		s_nativeAdhocBrowserRows[0].rowOnPressDown = 1;
+		s_nativeAdhocBrowserRows[0].rowOnPressLeft = 0;
+		s_nativeAdhocBrowserRows[0].rowOnPressRight = 0;
+
+		s_nativeAdhocBrowserRows[1].stringIndex = NATIVE_MENU_STRING_ONLINE_REFRESH;
+		s_nativeAdhocBrowserRows[1].rowOnPressUp = 1;
+		s_nativeAdhocBrowserRows[1].rowOnPressDown = 2;
+		s_nativeAdhocBrowserRows[1].rowOnPressLeft = 1;
+		s_nativeAdhocBrowserRows[1].rowOnPressRight = 1;
+
+		s_nativeAdhocBrowserRows[2].stringIndex = LNG_CANCEL;
+		s_nativeAdhocBrowserRows[2].rowOnPressUp = 1;
+		s_nativeAdhocBrowserRows[2].rowOnPressDown = 2;
+		s_nativeAdhocBrowserRows[2].rowOnPressLeft = 2;
+		s_nativeAdhocBrowserRows[2].rowOnPressRight = 2;
+
+		s_nativeAdhocBrowserRows[3].stringIndex = RECTMENU_STRING_NONE;
+	}
+	else
+	{
+		int maxDisplay = roomCount > 6 ? 6 : roomCount;
+		for (int i = 0; i < maxDisplay; i++)
+		{
+			const struct NativeLobbyRoomInfo *info = NativeLobby_GetRoom(i);
+			int isLocked = 0;
+			if ((info != NULL) && ((info->currentPlayers >= info->maxPlayers) || (strcmp(info->status, "RACING") == 0)))
+			{
+				isLocked = 1;
+			}
+			s_nativeAdhocBrowserRows[i].stringIndex = (NATIVE_MENU_STRING_ONLINE_ROOM_BASE + i) | (isLocked ? MENU_ROW_LOCKED : 0);
+			s_nativeAdhocBrowserRows[i].rowOnPressUp = (i > 0) ? (i - 1) : 0;
+			s_nativeAdhocBrowserRows[i].rowOnPressDown = i + 1;
+			s_nativeAdhocBrowserRows[i].rowOnPressLeft = i;
+			s_nativeAdhocBrowserRows[i].rowOnPressRight = i;
+		}
+
+		s_nativeAdhocBrowserRows[maxDisplay].stringIndex = NATIVE_MENU_STRING_ONLINE_REFRESH;
+		s_nativeAdhocBrowserRows[maxDisplay].rowOnPressUp = maxDisplay - 1;
+		s_nativeAdhocBrowserRows[maxDisplay].rowOnPressDown = maxDisplay + 1;
+		s_nativeAdhocBrowserRows[maxDisplay].rowOnPressLeft = maxDisplay;
+		s_nativeAdhocBrowserRows[maxDisplay].rowOnPressRight = maxDisplay;
+
+		s_nativeAdhocBrowserRows[maxDisplay + 1].stringIndex = LNG_CANCEL;
+		s_nativeAdhocBrowserRows[maxDisplay + 1].rowOnPressUp = maxDisplay;
+		s_nativeAdhocBrowserRows[maxDisplay + 1].rowOnPressDown = maxDisplay + 1;
+		s_nativeAdhocBrowserRows[maxDisplay + 1].rowOnPressLeft = maxDisplay + 1;
+		s_nativeAdhocBrowserRows[maxDisplay + 1].rowOnPressRight = maxDisplay + 1;
+
+		s_nativeAdhocBrowserRows[maxDisplay + 2].stringIndex = RECTMENU_STRING_NONE;
+	}
+}
+
 static void MM_NativeAdhocApplyText(void)
 {
 	s16 languageRow = MM_NativeAdhocLanguageRow();
@@ -1043,34 +1205,96 @@ static void MM_NativeAdhocApplyText(void)
 
 	switch (s_nativeAdhocMenuStage)
 	{
+	case MM_NATIVE_ADHOC_STAGE_NET:
+		sdata->lngStrings[LNG_NA_241] = (char *)s_nativeAdhocNetLocalText[languageRow];
+		sdata->lngStrings[LNG_NA_242] = (char *)s_nativeAdhocNetOnlineText[languageRow];
+		break;
+
 	case MM_NATIVE_ADHOC_STAGE_ROLE:
 		sdata->lngStrings[LNG_NA_241] = (char *)s_nativeAdhocHostText[languageRow];
 		sdata->lngStrings[LNG_NA_242] = (char *)s_nativeAdhocJoinText[languageRow];
 		break;
 
 	case MM_NATIVE_ADHOC_STAGE_WAIT:
-		if (NativeAdhoc_GetRole() == NATIVE_ADHOC_ROLE_CLIENT)
+		if (s_nativeAdhocNetChoice == NATIVE_ADHOC_NET_ONLINE)
 		{
-			sdata->lngStrings[LNG_NA_241] = (char *)NativeAdhoc_GetStatusText();
-			sdata->lngStrings[LNG_NA_242] = (char *)s_nativeAdhocJoinText[languageRow];
-			s_nativeAdhocWaitMenu.stringIndexTitle = LNG_NA_241;
-		}
-		else
-		{
-			static char s_nativeAdhocStartGameText[48];
-			int pCount = NativeAdhoc_GetPlayerCount();
-			snprintf(s_nativeAdhocStartGameText, sizeof(s_nativeAdhocStartGameText), "INICIAR JOGO (%d/4)", pCount);
-			sdata->lngStrings[LNG_NA_241] = s_nativeAdhocStartGameText;
-			sdata->lngStrings[LNG_NA_242] = (char *)NativeAdhoc_GetStatusText();
-			s_nativeAdhocWaitMenu.stringIndexTitle = LNG_NA_242;
+			const struct NativeLobbyActiveRoom *activeRoom = NativeLobby_GetActiveRoom();
+			static char s_onlineWaitTitle[64];
+			static char s_onlineWaitBtn[64];
 
-			if (pCount < 2)
+			if (activeRoom != NULL)
 			{
-				s_nativeAdhocWaitRowsHost[0].stringIndex = LNG_NA_241 | MENU_ROW_LOCKED;
+				if (activeRoom->isHost)
+				{
+					snprintf(s_onlineWaitTitle, sizeof(s_onlineWaitTitle), "SALA: %s (HOST)", activeRoom->code);
+					snprintf(s_onlineWaitBtn, sizeof(s_onlineWaitBtn), "INICIAR JOGO (%d/%d)", activeRoom->currentPlayers, activeRoom->maxPlayers);
+					sdata->lngStrings[LNG_NA_241] = s_onlineWaitBtn;
+					sdata->lngStrings[LNG_NA_242] = s_onlineWaitTitle;
+					s_nativeAdhocWaitMenu.stringIndexTitle = LNG_NA_242;
+
+					if (activeRoom->currentPlayers < 2)
+					{
+						s_nativeAdhocWaitRowsHost[0].stringIndex = LNG_NA_241 | MENU_ROW_LOCKED;
+					}
+					else
+					{
+						s_nativeAdhocWaitRowsHost[0].stringIndex = LNG_NA_241;
+						static int s_prevPlayersCount = 1;
+						if ((s_prevPlayersCount < 2) && (activeRoom->currentPlayers >= 2) && (s_nativeAdhocWaitMenu.rowSelected == 1))
+						{
+							s_nativeAdhocWaitMenu.rowSelected = 0;
+						}
+						s_prevPlayersCount = activeRoom->currentPlayers;
+					}
+				}
+				else
+				{
+					snprintf(s_onlineWaitTitle, sizeof(s_onlineWaitTitle), "SALA: %s (%d/%d)", activeRoom->code, activeRoom->currentPlayers, activeRoom->maxPlayers);
+					sdata->lngStrings[LNG_NA_241] = s_onlineWaitTitle;
+					sdata->lngStrings[LNG_NA_242] = (char *)s_nativeAdhocJoinText[languageRow];
+					s_nativeAdhocWaitMenu.stringIndexTitle = LNG_NA_241;
+				}
 			}
 			else
 			{
-				s_nativeAdhocWaitRowsHost[0].stringIndex = LNG_NA_241;
+				if (NativeLobby_GetState() == NATIVE_LOBBY_STATE_ERROR)
+				{
+					snprintf(s_onlineWaitTitle, sizeof(s_onlineWaitTitle), "ERRO: %s", NativeLobby_GetLastError());
+				}
+				else
+				{
+					snprintf(s_onlineWaitTitle, sizeof(s_onlineWaitTitle), "CONECTANDO AO SERVIDOR...");
+				}
+				sdata->lngStrings[LNG_NA_241] = s_onlineWaitTitle;
+				sdata->lngStrings[LNG_NA_242] = s_onlineWaitTitle;
+				s_nativeAdhocWaitMenu.stringIndexTitle = LNG_NA_241;
+			}
+		}
+		else
+		{
+			if (NativeAdhoc_GetRole() == NATIVE_ADHOC_ROLE_CLIENT)
+			{
+				sdata->lngStrings[LNG_NA_241] = (char *)NativeAdhoc_GetStatusText();
+				sdata->lngStrings[LNG_NA_242] = (char *)s_nativeAdhocJoinText[languageRow];
+				s_nativeAdhocWaitMenu.stringIndexTitle = LNG_NA_241;
+			}
+			else
+			{
+				static char s_nativeAdhocStartGameText[48];
+				int pCount = NativeAdhoc_GetPlayerCount();
+				snprintf(s_nativeAdhocStartGameText, sizeof(s_nativeAdhocStartGameText), "INICIAR JOGO (%d/4)", pCount);
+				sdata->lngStrings[LNG_NA_241] = s_nativeAdhocStartGameText;
+				sdata->lngStrings[LNG_NA_242] = (char *)NativeAdhoc_GetStatusText();
+				s_nativeAdhocWaitMenu.stringIndexTitle = LNG_NA_242;
+
+				if (pCount < 2)
+				{
+					s_nativeAdhocWaitRowsHost[0].stringIndex = LNG_NA_241 | MENU_ROW_LOCKED;
+				}
+				else
+				{
+					s_nativeAdhocWaitRowsHost[0].stringIndex = LNG_NA_241;
+				}
 			}
 		}
 		break;
@@ -1091,6 +1315,26 @@ static void MM_NativeAdhocResetHierarchy(void)
 {
 	D230.menuMainMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
 	D230.menuMainMenu.ptrNextBox_InHierarchy = NULL;
+
+	s_nativeAdhocNetMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+	s_nativeAdhocNetMenu.ptrNextBox_InHierarchy = NULL;
+	s_nativeAdhocNetMenu.ptrPrevBox_InHierarchy = NULL;
+	s_nativeAdhocNetMenu.rowSelected = 0;
+
+	s_nativeAdhocOnlineMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+	s_nativeAdhocOnlineMenu.ptrNextBox_InHierarchy = NULL;
+	s_nativeAdhocOnlineMenu.ptrPrevBox_InHierarchy = NULL;
+	s_nativeAdhocOnlineMenu.rowSelected = 0;
+
+	s_nativeAdhocBrowserMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+	s_nativeAdhocBrowserMenu.ptrNextBox_InHierarchy = NULL;
+	s_nativeAdhocBrowserMenu.ptrPrevBox_InHierarchy = NULL;
+	s_nativeAdhocBrowserMenu.rowSelected = 0;
+
+	s_nativeAdhocCodeMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+	s_nativeAdhocCodeMenu.ptrNextBox_InHierarchy = NULL;
+	s_nativeAdhocCodeMenu.ptrPrevBox_InHierarchy = NULL;
+	s_nativeAdhocCodeMenu.rowSelected = 0;
 
 	s_nativeAdhocModeMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
 	s_nativeAdhocModeMenu.ptrNextBox_InHierarchy = NULL;
@@ -1113,12 +1357,97 @@ static void MM_NativeAdhocResetHierarchy(void)
 static void MM_NativeAdhocReturnToMain(void)
 {
 	NativeAdhoc_Shutdown();
+	NativeLobby_LeaveRoom();
 	MM_NativeAdhocResetHierarchy();
 	MM_NativeAdhocSetMainBreadcrumb(NATIVE_MENU_STRING_ADHOC);
 	s_nativeAdhocGameMode = NATIVE_ADHOC_GAME_MODE_ARCADE;
 	s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_MAIN;
 	RECTMENU_ClearInput();
 	sdata->ptrDesiredMenu = &D230.menuMainMenu;
+}
+
+void MM_NativeAdhocOnlineOpenWaitAsClient(void)
+{
+	s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_WAIT;
+	s_nativeAdhocSuppressInputFrames = 2;
+	s_nativeAdhocWaitMenu.rows = s_nativeAdhocWaitRowsClient;
+	s_nativeAdhocWaitMenu.rowSelected = 0;
+
+	// Reset any intermediate menus so they do not draw or capture input
+	s_nativeAdhocBrowserMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+	s_nativeAdhocBrowserMenu.ptrNextBox_InHierarchy = NULL;
+	s_nativeAdhocBrowserMenu.ptrPrevBox_InHierarchy = NULL;
+	s_nativeAdhocBrowserMenu.rowSelected = 0;
+
+	s_nativeAdhocCodeMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+	s_nativeAdhocCodeMenu.ptrNextBox_InHierarchy = NULL;
+	s_nativeAdhocCodeMenu.ptrPrevBox_InHierarchy = NULL;
+	s_nativeAdhocCodeMenu.rowSelected = 0;
+
+	// Connect OnlineMenu directly to WaitMenu
+	s_nativeAdhocWaitMenu.ptrPrevBox_InHierarchy = &s_nativeAdhocOnlineMenu;
+	s_nativeAdhocOnlineMenu.ptrNextBox_InHierarchy = &s_nativeAdhocWaitMenu;
+	s_nativeAdhocOnlineMenu.state |= ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY;
+
+	sdata->activeSubMenu = &s_nativeAdhocWaitMenu;
+	sdata->ptrDesiredMenu = &D230.menuMainMenu;
+
+	MM_NativeAdhocApplyText();
+	RECTMENU_ClearInput();
+}
+
+void MM_NativeAdhocReturnToRole(void)
+{
+	NativeAdhoc_Shutdown();
+	if (s_nativeAdhocNetChoice == NATIVE_ADHOC_NET_ONLINE)
+	{
+		NativeLobby_LeaveRoom();
+	}
+
+	s_nativeAdhocWaitMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+	s_nativeAdhocWaitMenu.ptrNextBox_InHierarchy = NULL;
+	s_nativeAdhocWaitMenu.ptrPrevBox_InHierarchy = NULL;
+	s_nativeAdhocWaitMenu.rowSelected = 0;
+
+	s_nativeAdhocBrowserMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+	s_nativeAdhocBrowserMenu.ptrNextBox_InHierarchy = NULL;
+	s_nativeAdhocBrowserMenu.ptrPrevBox_InHierarchy = NULL;
+	s_nativeAdhocBrowserMenu.rowSelected = 0;
+
+	s_nativeAdhocCodeMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+	s_nativeAdhocCodeMenu.ptrNextBox_InHierarchy = NULL;
+	s_nativeAdhocCodeMenu.ptrPrevBox_InHierarchy = NULL;
+	s_nativeAdhocCodeMenu.rowSelected = 0;
+
+	if (s_nativeAdhocNetChoice == NATIVE_ADHOC_NET_ONLINE)
+	{
+		s_nativeAdhocModeMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+		s_nativeAdhocModeMenu.ptrNextBox_InHierarchy = NULL;
+		s_nativeAdhocModeMenu.ptrPrevBox_InHierarchy = NULL;
+
+		s_nativeAdhocOnlineMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+		s_nativeAdhocOnlineMenu.ptrNextBox_InHierarchy = NULL;
+		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_ONLINE_MENU;
+		sdata->activeSubMenu = &s_nativeAdhocOnlineMenu;
+	}
+	else
+	{
+		s_nativeAdhocModeMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+		s_nativeAdhocModeMenu.ptrNextBox_InHierarchy = NULL;
+		s_nativeAdhocModeMenu.ptrPrevBox_InHierarchy = NULL;
+
+		s_nativeAdhocRoleMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+		s_nativeAdhocRoleMenu.ptrNextBox_InHierarchy = NULL;
+		s_nativeAdhocRoleMenu.ptrPrevBox_InHierarchy = &s_nativeAdhocNetMenu;
+		s_nativeAdhocNetMenu.ptrNextBox_InHierarchy = &s_nativeAdhocRoleMenu;
+		s_nativeAdhocNetMenu.state |= ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY;
+		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_ROLE;
+		sdata->activeSubMenu = &s_nativeAdhocRoleMenu;
+	}
+
+	sdata->ptrDesiredMenu = &D230.menuMainMenu;
+	MM_NativeAdhocApplyText();
+	RECTMENU_ClearInput();
 }
 
 static int MM_NativeAdhocPollWait(struct GameTracker *gGT)
@@ -1132,7 +1461,27 @@ static int MM_NativeAdhocPollWait(struct GameTracker *gGT)
 
 	dialogWasRunning = NativeAdhoc_IsDialogRunning();
 	NativeAdhoc_Update();
+	NativeLobby_Update();
 	MM_NativeAdhocApplyText();
+
+	if (s_nativeAdhocNetChoice == NATIVE_ADHOC_NET_ONLINE)
+	{
+		const struct NativeLobbyActiveRoom *activeRoom = NativeLobby_GetActiveRoom();
+		if (activeRoom != NULL)
+		{
+			if (!NativeAdhoc_IsActive())
+			{
+				NativeAdhoc_SetNetType(NATIVE_ADHOC_NET_ONLINE);
+				NativeAdhoc_SetRelayInfo(activeRoom->relayHost, activeRoom->relayPort, activeRoom->code, activeRoom->slot);
+				NativeAdhoc_Begin(activeRoom->isHost ? NATIVE_ADHOC_ROLE_HOST : NATIVE_ADHOC_ROLE_CLIENT, s_nativeAdhocGameMode);
+			}
+
+			if (!activeRoom->isHost && (strcmp(activeRoom->status, "RACING") == 0) && !NativeAdhoc_IsLobbyStarted())
+			{
+				NativeAdhoc_StartLobby();
+			}
+		}
+	}
 
 	if (dialogWasRunning || NativeAdhoc_IsDialogRunning())
 	{
@@ -1144,7 +1493,17 @@ static int MM_NativeAdhocPollWait(struct GameTracker *gGT)
 		s_nativeAdhocSuppressInputFrames--;
 	}
 
-	if (NativeAdhoc_IsConnected() && NativeAdhoc_IsLobbyStarted())
+	int lobbyReady = NativeAdhoc_IsConnected();
+	if (s_nativeAdhocNetChoice == NATIVE_ADHOC_NET_ONLINE)
+	{
+		const struct NativeLobbyActiveRoom *ar = NativeLobby_GetActiveRoom();
+		if ((ar != NULL) && (ar->currentPlayers >= 2))
+		{
+			lobbyReady = 1;
+		}
+	}
+
+	if (lobbyReady && NativeAdhoc_IsLobbyStarted())
 	{
 		int adhocGameMode = NativeAdhoc_GetGameMode();
 		if ((adhocGameMode != NATIVE_ADHOC_GAME_MODE_ARCADE) && (adhocGameMode != NATIVE_ADHOC_GAME_MODE_VS))
@@ -1160,7 +1519,16 @@ static int MM_NativeAdhocPollWait(struct GameTracker *gGT)
 		{
 			gGT->gameMode1 |= ARCADE_MODE;
 		}
-		gGT->numPlyrNextGame = (u8)NativeAdhoc_GetPlayerCount();
+		int plyrCount = NativeAdhoc_GetPlayerCount();
+		if (s_nativeAdhocNetChoice == NATIVE_ADHOC_NET_ONLINE)
+		{
+			const struct NativeLobbyActiveRoom *ar = NativeLobby_GetActiveRoom();
+			if ((ar != NULL) && (ar->currentPlayers > plyrCount))
+			{
+				plyrCount = ar->currentPlayers;
+			}
+		}
+		gGT->numPlyrNextGame = (u8)plyrCount;
 		gGT->numLaps = MM_DEFAULT_LAP_COUNT;
 		MM_NativeAdhocResetHierarchy();
 		MM_NativeAdhocSetMainBreadcrumb(NATIVE_MENU_STRING_ADHOC);
@@ -1175,14 +1543,14 @@ static int MM_NativeAdhocPollWait(struct GameTracker *gGT)
 
 	if (NativeAdhoc_GetStatus() == NATIVE_ADHOC_STATUS_ERROR)
 	{
-		MM_NativeAdhocReturnToMain();
+		MM_NativeAdhocReturnToRole();
 		return 1;
 	}
 
 	return 0;
 }
 
-static void MM_NativeAdhocModeProc(struct RectMenu *menu)
+static void MM_NativeAdhocNetProc(struct RectMenu *menu)
 {
 	MM_NativeAdhocApplyText();
 
@@ -1201,14 +1569,301 @@ static void MM_NativeAdhocModeProc(struct RectMenu *menu)
 		return;
 	}
 
-	if ((menu->rowSelected == 0) || (menu->rowSelected == 1))
+	if (menu->rowSelected == 0) // LAN
 	{
-		s_nativeAdhocGameMode = menu->rowSelected == 0 ? NATIVE_ADHOC_GAME_MODE_ARCADE : NATIVE_ADHOC_GAME_MODE_VS;
+		s_nativeAdhocNetChoice = NATIVE_ADHOC_NET_LOCAL;
+		NativeAdhoc_SetNetType(NATIVE_ADHOC_NET_LOCAL);
 		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_ROLE;
 		MM_NativeAdhocApplyText();
 		s_nativeAdhocRoleMenu.rowSelected = 0;
+		s_nativeAdhocRoleMenu.ptrPrevBox_InHierarchy = menu;
 		menu->ptrNextBox_InHierarchy = &s_nativeAdhocRoleMenu;
 		menu->state |= ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY;
+		return;
+	}
+
+	if (menu->rowSelected == 1) // ONLINE
+	{
+		s_nativeAdhocNetChoice = NATIVE_ADHOC_NET_ONLINE;
+		NativeAdhoc_SetNetType(NATIVE_ADHOC_NET_ONLINE);
+		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_ONLINE_MENU;
+		MM_NativeAdhocApplyText();
+		s_nativeAdhocOnlineMenu.rowSelected = 0;
+		s_nativeAdhocOnlineMenu.ptrPrevBox_InHierarchy = menu;
+		menu->ptrNextBox_InHierarchy = &s_nativeAdhocOnlineMenu;
+		menu->state |= ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY;
+		return;
+	}
+}
+
+static void MM_NativeAdhocOnlineProc(struct RectMenu *menu)
+{
+	MM_NativeAdhocApplyText();
+
+	if (menu->funcState != RECTMENU_FUNC_STATE_INPUT)
+	{
+		return;
+	}
+
+	if ((menu->rowSelected < 0) || (menu->rowSelected == 3))
+	{
+		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_NET;
+		if (menu->ptrPrevBox_InHierarchy != NULL)
+		{
+			menu->ptrPrevBox_InHierarchy->state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+		}
+		return;
+	}
+
+	if (menu->rowSelected == 0) // CRIAR SALA
+	{
+		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_MODE;
+		MM_NativeAdhocApplyText();
+		s_nativeAdhocModeMenu.rowSelected = 0;
+		s_nativeAdhocModeMenu.ptrPrevBox_InHierarchy = menu;
+		menu->ptrNextBox_InHierarchy = &s_nativeAdhocModeMenu;
+		menu->state |= ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY;
+		return;
+	}
+
+	if (menu->rowSelected == 1) // SALAS ONLINE
+	{
+		NativeLobby_RefreshRooms();
+		MM_NativeAdhocUpdateBrowserRows();
+		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_ONLINE_BROWSER;
+		s_nativeAdhocBrowserMenu.rowSelected = (NativeLobby_GetRoomCount() > 0) ? 0 : 1;
+		s_nativeAdhocBrowserMenu.ptrPrevBox_InHierarchy = menu;
+		menu->ptrNextBox_InHierarchy = &s_nativeAdhocBrowserMenu;
+		menu->state |= ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY;
+		return;
+	}
+
+	if (menu->rowSelected == 2) // BUSCAR POR CODIGO
+	{
+		extern void SubmitName_RestoreName(s16 submitNameMode);
+		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_ONLINE_CODE_INPUT;
+		struct GameTracker *gGT = sdata->gGT;
+		gGT->currNameEntered[0] = '\0';
+		gGT->prevNameEntered[0] = '\0';
+		SubmitName_RestoreName(2); // SUBMIT_NAME_MODE_ONLINE_CODE
+		sdata->ptrDesiredMenu = &data.menuSubmitName;
+		RECTMENU_ClearInput();
+		return;
+	}
+}
+
+static void MM_NativeAdhocBrowserProc(struct RectMenu *menu)
+{
+	MM_NativeAdhocUpdateBrowserRows();
+
+	if (menu->funcState != RECTMENU_FUNC_STATE_INPUT)
+	{
+		return;
+	}
+
+	s16 chosen = menu->rows[menu->rowSelected].stringIndex & MENU_ROW_LNG_MASK;
+
+	if ((menu->rowSelected < 0) || (chosen == LNG_CANCEL))
+	{
+		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_ONLINE_MENU;
+		s_nativeAdhocBrowserMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+		s_nativeAdhocBrowserMenu.ptrNextBox_InHierarchy = NULL;
+		s_nativeAdhocBrowserMenu.ptrPrevBox_InHierarchy = NULL;
+		s_nativeAdhocOnlineMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+		s_nativeAdhocOnlineMenu.ptrNextBox_InHierarchy = NULL;
+		sdata->activeSubMenu = &s_nativeAdhocOnlineMenu;
+		sdata->ptrDesiredMenu = &D230.menuMainMenu;
+		RECTMENU_ClearInput();
+		return;
+	}
+
+	int roomCount = NativeLobby_GetRoomCount();
+	int maxDisplay = roomCount > 6 ? 6 : roomCount;
+
+	if (chosen == NATIVE_MENU_STRING_ONLINE_REFRESH)
+	{
+		NativeLobby_RefreshRooms();
+		return;
+	}
+
+	if ((chosen >= NATIVE_MENU_STRING_ONLINE_ROOM_BASE) &&
+	    (chosen < (NATIVE_MENU_STRING_ONLINE_ROOM_BASE + maxDisplay)))
+	{
+		int idx = chosen - NATIVE_MENU_STRING_ONLINE_ROOM_BASE;
+		const struct NativeLobbyRoomInfo *info = NativeLobby_GetRoom(idx);
+		if (info != NULL)
+		{
+			NativeLobby_JoinRoom(info->code, "Player");
+			MM_NativeAdhocOnlineOpenWaitAsClient();
+		}
+	}
+}
+
+static void MM_NativeAdhocCodeProc(struct RectMenu *menu)
+{
+	int charsetLen = (int)strlen(s_onlineCodeCharset);
+
+	// Handle controller Left/Right/Up/Down when on Row 0
+	if (menu->rowSelected == 0)
+	{
+		u32 tap = sdata->buttonTapPerPlayer[0];
+		if (tap & BTN_LEFT)
+		{
+			if (s_onlineCodeCursor > 0) s_onlineCodeCursor--;
+		}
+		if (tap & BTN_RIGHT)
+		{
+			if (s_onlineCodeCursor < 3) s_onlineCodeCursor++;
+		}
+		if (tap & BTN_UP)
+		{
+			const char *p = strchr(s_onlineCodeCharset, s_onlineSearchCode[s_onlineCodeCursor]);
+			int idx = p ? (int)(p - s_onlineCodeCharset) : 0;
+			idx = (idx + 1) % charsetLen;
+			s_onlineSearchCode[s_onlineCodeCursor] = s_onlineCodeCharset[idx];
+		}
+		if (tap & BTN_DOWN)
+		{
+			const char *p = strchr(s_onlineCodeCharset, s_onlineSearchCode[s_onlineCodeCursor]);
+			int idx = p ? (int)(p - s_onlineCodeCharset) : 0;
+			idx = (idx - 1 + charsetLen) % charsetLen;
+			s_onlineSearchCode[s_onlineCodeCursor] = s_onlineCodeCharset[idx];
+		}
+	}
+
+#if defined(_WIN32)
+	// Direct keyboard typing support
+	int numKeys = 0;
+	const bool *keystate = SDL_GetKeyboardState(&numKeys);
+	static bool s_prevKey[512] = {false};
+	if (keystate != NULL)
+	{
+		for (int sc = SDL_SCANCODE_A; sc <= SDL_SCANCODE_Z; sc++)
+		{
+			if (keystate[sc] && !s_prevKey[sc])
+			{
+				char ch = 'A' + (sc - SDL_SCANCODE_A);
+				if (strchr(s_onlineCodeCharset, ch))
+				{
+					s_onlineSearchCode[s_onlineCodeCursor] = ch;
+					if (s_onlineCodeCursor < 3) s_onlineCodeCursor++;
+				}
+			}
+		}
+		for (int sc = SDL_SCANCODE_1; sc <= SDL_SCANCODE_9; sc++)
+		{
+			if (keystate[sc] && !s_prevKey[sc])
+			{
+				char ch = '1' + (sc - SDL_SCANCODE_1);
+				if (strchr(s_onlineCodeCharset, ch))
+				{
+					s_onlineSearchCode[s_onlineCodeCursor] = ch;
+					if (s_onlineCodeCursor < 3) s_onlineCodeCursor++;
+				}
+			}
+		}
+		if (keystate[SDL_SCANCODE_0] && !s_prevKey[SDL_SCANCODE_0])
+		{
+			if (strchr(s_onlineCodeCharset, '0'))
+			{
+				s_onlineSearchCode[s_onlineCodeCursor] = '0';
+				if (s_onlineCodeCursor < 3) s_onlineCodeCursor++;
+			}
+		}
+		if (keystate[SDL_SCANCODE_BACKSPACE] && !s_prevKey[SDL_SCANCODE_BACKSPACE])
+		{
+			if (s_onlineCodeCursor > 0) s_onlineCodeCursor--;
+		}
+		int copyLen = (numKeys < 512) ? numKeys : 512;
+		for (int k = 0; k < copyLen; k++)
+		{
+			s_prevKey[k] = keystate[k];
+		}
+	}
+#endif
+
+	if (menu->funcState != RECTMENU_FUNC_STATE_INPUT)
+	{
+		return;
+	}
+
+	if ((menu->rowSelected < 0) || (menu->rowSelected == 2))
+	{
+		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_ONLINE_MENU;
+		if (menu->ptrPrevBox_InHierarchy != NULL)
+		{
+			menu->ptrPrevBox_InHierarchy->state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+		}
+		return;
+	}
+
+	if (menu->rowSelected == 1) // ENTRAR
+	{
+		NativeLobby_JoinRoom(s_onlineSearchCode, "Player");
+		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_WAIT;
+		s_nativeAdhocSuppressInputFrames = 2;
+		s_nativeAdhocWaitMenu.rows = s_nativeAdhocWaitRowsClient;
+		s_nativeAdhocWaitMenu.rowSelected = 0;
+		s_nativeAdhocWaitMenu.ptrPrevBox_InHierarchy = menu;
+		MM_NativeAdhocApplyText();
+		menu->ptrNextBox_InHierarchy = &s_nativeAdhocWaitMenu;
+		menu->state |= ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY;
+	}
+}
+
+static void MM_NativeAdhocModeProc(struct RectMenu *menu)
+{
+	MM_NativeAdhocApplyText();
+
+	if (menu->funcState != RECTMENU_FUNC_STATE_INPUT)
+	{
+		return;
+	}
+
+	if (menu->rowSelected < 0)
+	{
+		s_nativeAdhocMenuStage = (s_nativeAdhocNetChoice == NATIVE_ADHOC_NET_ONLINE) ? MM_NATIVE_ADHOC_STAGE_ONLINE_MENU : MM_NATIVE_ADHOC_STAGE_ROLE;
+		MM_NativeAdhocApplyText();
+		if (menu->ptrPrevBox_InHierarchy != NULL)
+		{
+			menu->ptrPrevBox_InHierarchy->state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+		}
+		return;
+	}
+
+	if ((menu->rowSelected == 0) || (menu->rowSelected == 1))
+	{
+		s_nativeAdhocGameMode = menu->rowSelected == 0 ? NATIVE_ADHOC_GAME_MODE_ARCADE : NATIVE_ADHOC_GAME_MODE_VS;
+
+		if (s_nativeAdhocNetChoice == NATIVE_ADHOC_NET_ONLINE)
+		{
+			NativeLobby_CreateRoom("Host", (s_nativeAdhocGameMode == NATIVE_ADHOC_GAME_MODE_ARCADE) ? "ARCADE" : "VS", 0);
+			s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_WAIT;
+			s_nativeAdhocSuppressInputFrames = 2;
+			s_nativeAdhocWaitMenu.rows = s_nativeAdhocWaitRowsHost;
+			s_nativeAdhocWaitMenu.rowSelected = 0;
+			s_nativeAdhocWaitMenu.ptrPrevBox_InHierarchy = menu;
+			MM_NativeAdhocApplyText();
+			menu->ptrNextBox_InHierarchy = &s_nativeAdhocWaitMenu;
+			menu->state |= ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY;
+			return;
+		}
+
+		if (!NativeAdhoc_Begin(NATIVE_ADHOC_ROLE_HOST, s_nativeAdhocGameMode))
+		{
+			MM_NativeAdhocReturnToRole();
+			return;
+		}
+
+		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_WAIT;
+		s_nativeAdhocSuppressInputFrames = 2;
+		s_nativeAdhocWaitMenu.rows = s_nativeAdhocWaitRowsHost;
+		s_nativeAdhocWaitMenu.rowSelected = 0;
+		s_nativeAdhocWaitMenu.ptrPrevBox_InHierarchy = menu;
+		MM_NativeAdhocApplyText();
+		menu->ptrNextBox_InHierarchy = &s_nativeAdhocWaitMenu;
+		menu->state |= ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY;
+		return;
 	}
 }
 
@@ -1223,7 +1878,8 @@ static void MM_NativeAdhocRoleProc(struct RectMenu *menu)
 
 	if (menu->rowSelected < 0)
 	{
-		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_MODE;
+		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_NET;
+		MM_NativeAdhocApplyText();
 		if (menu->ptrPrevBox_InHierarchy != NULL)
 		{
 			menu->ptrPrevBox_InHierarchy->state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
@@ -1231,22 +1887,34 @@ static void MM_NativeAdhocRoleProc(struct RectMenu *menu)
 		return;
 	}
 
-	if ((menu->rowSelected == 0) || (menu->rowSelected == 1))
+	if (menu->rowSelected == 0) // HOST ROOM -> MODO DE JOGO
 	{
-		int role = menu->rowSelected == 0 ? NATIVE_ADHOC_ROLE_HOST : NATIVE_ADHOC_ROLE_CLIENT;
-		if (!NativeAdhoc_Begin(role, s_nativeAdhocGameMode))
+		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_MODE;
+		MM_NativeAdhocApplyText();
+		s_nativeAdhocModeMenu.rowSelected = 0;
+		s_nativeAdhocModeMenu.ptrPrevBox_InHierarchy = menu;
+		menu->ptrNextBox_InHierarchy = &s_nativeAdhocModeMenu;
+		menu->state |= ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY;
+		return;
+	}
+
+	if (menu->rowSelected == 1) // JOIN ROOM -> ENTRA DIRETO NA SALA LAN
+	{
+		if (!NativeAdhoc_Begin(NATIVE_ADHOC_ROLE_CLIENT, NATIVE_ADHOC_GAME_MODE_ARCADE))
 		{
-			MM_NativeAdhocReturnToMain();
+			MM_NativeAdhocReturnToRole();
 			return;
 		}
 
 		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_WAIT;
 		s_nativeAdhocSuppressInputFrames = 2;
-		s_nativeAdhocWaitMenu.rows = (role == NATIVE_ADHOC_ROLE_HOST) ? s_nativeAdhocWaitRowsHost : s_nativeAdhocWaitRowsClient;
+		s_nativeAdhocWaitMenu.rows = s_nativeAdhocWaitRowsClient;
 		s_nativeAdhocWaitMenu.rowSelected = 0;
+		s_nativeAdhocWaitMenu.ptrPrevBox_InHierarchy = menu;
 		MM_NativeAdhocApplyText();
 		menu->ptrNextBox_InHierarchy = &s_nativeAdhocWaitMenu;
 		menu->state |= ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY;
+		return;
 	}
 }
 
@@ -1262,28 +1930,66 @@ static void MM_NativeAdhocWaitProc(struct RectMenu *menu)
 		return;
 	}
 
-	if (NativeAdhoc_GetRole() == NATIVE_ADHOC_ROLE_HOST)
+	int isHost = (NativeAdhoc_GetRole() == NATIVE_ADHOC_ROLE_HOST);
+	if (s_nativeAdhocNetChoice == NATIVE_ADHOC_NET_ONLINE)
+	{
+		const struct NativeLobbyActiveRoom *activeRoom = NativeLobby_GetActiveRoom();
+		if (activeRoom != NULL)
+		{
+			isHost = activeRoom->isHost;
+		}
+	}
+
+	if (isHost)
 	{
 		if ((menu->rowSelected < 0) || (menu->rowSelected == 1))
 		{
-			MM_NativeAdhocReturnToMain();
+			MM_NativeAdhocReturnToRole();
 			return;
 		}
 
 		if (menu->rowSelected == 0)
 		{
-			if (NativeAdhoc_GetPlayerCount() >= 2)
+			if (s_nativeAdhocNetChoice == NATIVE_ADHOC_NET_ONLINE)
 			{
-				NativeAdhoc_StartLobby();
+				const struct NativeLobbyActiveRoom *activeRoom = NativeLobby_GetActiveRoom();
+				if ((activeRoom != NULL) && (activeRoom->currentPlayers >= 2))
+				{
+					NativeLobby_StartRace();
+					NativeAdhoc_StartLobby();
+				}
+			}
+			else
+			{
+				if (NativeAdhoc_GetPlayerCount() >= 2)
+				{
+					NativeAdhoc_StartLobby();
+				}
 			}
 			return;
 		}
 	}
 	else
 	{
+		if (NativeAdhoc_IsLobbyStarted())
+		{
+			return;
+		}
+
+		if (s_nativeAdhocNetChoice == NATIVE_ADHOC_NET_ONLINE)
+		{
+			const struct NativeLobbyActiveRoom *activeRoom = NativeLobby_GetActiveRoom();
+			if ((activeRoom != NULL) && (strcmp(activeRoom->status, "RACING") == 0))
+			{
+				NativeAdhoc_StartLobby();
+				return;
+			}
+		}
+
 		if ((menu->rowSelected < 0) || (menu->rowSelected == 0))
 		{
-			MM_NativeAdhocReturnToMain();
+			MM_NativeAdhocReturnToRole();
+			return;
 		}
 	}
 }
@@ -2588,6 +3294,8 @@ void MM_MenuProc_Main(struct RectMenu *mainMenu)
 #if defined(CTR_NATIVE)
 	if (choose == NATIVE_MENU_STRING_ADHOC)
 	{
+		s_nativeAdhocNetMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+		s_nativeAdhocNetMenu.ptrNextBox_InHierarchy = NULL;
 		s_nativeAdhocModeMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
 		s_nativeAdhocModeMenu.ptrNextBox_InHierarchy = NULL;
 		s_nativeAdhocRoleMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
@@ -2595,12 +3303,15 @@ void MM_MenuProc_Main(struct RectMenu *mainMenu)
 		s_nativeAdhocWaitMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
 		s_nativeAdhocWaitMenu.ptrNextBox_InHierarchy = NULL;
 		s_nativeAdhocSuppressInputFrames = 0;
+		s_nativeAdhocNetChoice = NATIVE_ADHOC_NET_LOCAL;
+		NativeAdhoc_SetNetType(NATIVE_ADHOC_NET_LOCAL);
 		s_nativeAdhocGameMode = NATIVE_ADHOC_GAME_MODE_ARCADE;
-		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_MODE;
-		s_nativeAdhocModeMenu.rowSelected = 0;
-		s_nativeAdhocModeMenu.ptrPrevBox_InHierarchy = mainMenu;
+		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_NET;
+		MM_NativeAdhocApplyText();
+		s_nativeAdhocNetMenu.rowSelected = 0;
+		s_nativeAdhocNetMenu.ptrPrevBox_InHierarchy = mainMenu;
 
-		mainMenu->ptrNextBox_InHierarchy = &s_nativeAdhocModeMenu;
+		mainMenu->ptrNextBox_InHierarchy = &s_nativeAdhocNetMenu;
 		mainMenu->state |= DRAW_NEXT_MENU_IN_HIERARCHY;
 		return;
 	}

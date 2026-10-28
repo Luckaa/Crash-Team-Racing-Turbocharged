@@ -316,24 +316,30 @@ void VehBirth_TeleportSelf(struct Driver *d, u8 spawnFlag, int spawnPosY)
 	if (sps->boolDidTouchQuadblock == 0)
 	{
 		d->AxisAngle3_normalVec = (SVec3){.x = 0, .y = FP_ONE, .z = 0};
+		d->posCurr.x = CTR_MipsSll(posBottom.x, FRACTIONAL_BITS_8);
+		d->posCurr.y = CTR_MipsSll(CTR_MipsAddLo(posBottom.y, spawnPosY), FRACTIONAL_BITS_8);
+		d->posCurr.z = CTR_MipsSll(posBottom.z, FRACTIONAL_BITS_8);
 	}
 	else
 	{
 		d->AxisAngle3_normalVec = sps->hit.plane.normal;
-		d->lastValid = sps->hit.ptrQuadblock;
+		if (sps->hit.ptrQuadblock != NULL && sps->hit.ptrQuadblock->checkpointIndex != 0xff)
+		{
+			d->lastValid = sps->hit.ptrQuadblock;
+		}
+		d->posCurr.x = CTR_MipsSll(sps->Union.QuadBlockColl.hitPos.x, FRACTIONAL_BITS_8);
+		d->posCurr.y = CTR_MipsSll(CTR_MipsAddLo(sps->Union.QuadBlockColl.hitPos.y, spawnPosY), FRACTIONAL_BITS_8);
+		d->posCurr.z = CTR_MipsSll(sps->Union.QuadBlockColl.hitPos.z, FRACTIONAL_BITS_8);
 	}
 
 	d->AxisAngle1_normalVec = d->AxisAngle3_normalVec;
 	d->AxisAngle2_normalVec = d->AxisAngle3_normalVec;
 	d->AxisAngle4_normalVec = d->AxisAngle2_normalVec;
 
-	d->posCurr.x = CTR_MipsSll(sps->Union.QuadBlockColl.hitPos.x, FRACTIONAL_BITS_8);
-	d->posCurr.y = CTR_MipsSll(CTR_MipsAddLo(sps->Union.QuadBlockColl.hitPos.y, spawnPosY), FRACTIONAL_BITS_8);
-	d->posCurr.z = CTR_MipsSll(sps->Union.QuadBlockColl.hitPos.z, FRACTIONAL_BITS_8);
 	d->posPrev.x = d->posCurr.x;
 	d->posPrev.y = d->posCurr.y;
 	d->posPrev.z = d->posCurr.z;
-	d->quadBlockHeight = CTR_MipsSll(sps->Union.QuadBlockColl.hitPos.y, FRACTIONAL_BITS_8);
+	d->quadBlockHeight = d->posCurr.y;
 
 	if ((spawnFlag & VEH_BIRTH_SPAWN_USE_LEVEL_POSITION) != 0)
 	{
@@ -420,6 +426,27 @@ void VehBirth_TeleportSelf(struct Driver *d, u8 spawnFlag, int spawnPosY)
 	d->rotPrev.y = d->rotCurr.y;
 	d->rotPrev.z = d->rotCurr.z;
 
+	// Initialize matrixFacingDir and instance matrix to ensure kart is facing forward from frame 0
+	{
+		s16 startNorm[3] = {0, 0x1000, 0};
+		if (d->AxisAngle2_normalVec.y != 0)
+		{
+			startNorm[0] = d->AxisAngle2_normalVec.x;
+			startNorm[1] = d->AxisAngle2_normalVec.y;
+			startNorm[2] = d->AxisAngle2_normalVec.z;
+		}
+		VehPhysForce_RotAxisAngle(&d->matrixFacingDir, startNorm, d->rotCurr.y);
+		dInst->matrix.m[0][0] = d->matrixFacingDir.m[0][0];
+		dInst->matrix.m[0][1] = d->matrixFacingDir.m[0][1];
+		dInst->matrix.m[0][2] = d->matrixFacingDir.m[0][2];
+		dInst->matrix.m[1][0] = d->matrixFacingDir.m[1][0];
+		dInst->matrix.m[1][1] = d->matrixFacingDir.m[1][1];
+		dInst->matrix.m[1][2] = d->matrixFacingDir.m[1][2];
+		dInst->matrix.m[2][0] = d->matrixFacingDir.m[2][0];
+		dInst->matrix.m[2][1] = d->matrixFacingDir.m[2][1];
+		dInst->matrix.m[2][2] = d->matrixFacingDir.m[2][2];
+	}
+
 	if ((doorInst != NULL) && ((spawnFlag & VEH_BIRTH_SPAWN_USE_LEVEL_POSITION) != 0))
 	{
 		d->speed = VEH_BIRTH_DOOR_EXIT_SPEED;
@@ -449,7 +476,10 @@ void VehBirth_TeleportSelf(struct Driver *d, u8 spawnFlag, int spawnPosY)
 			d->funcPtrs[i] = NULL;
 		}
 
-		CAM_StartOfRace(&gGT->cameraDC[d->driverID]);
+		if (d->driverID < 4)
+		{
+			CAM_StartOfRace(&gGT->cameraDC[d->driverID]);
+		}
 
 		dInst->thread->funcThTick = ((gGT->gameMode1 & (GAME_CUTSCENE | MAIN_MENU)) == 0) ? NULL : VehBirth_NullThread;
 

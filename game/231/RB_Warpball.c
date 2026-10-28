@@ -62,6 +62,11 @@ void RB_Warpball_FadeAway(struct Thread *t)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ae604-0x800ae668.
 void RB_Warpball_Death(struct Thread *t)
 {
+	if (t == NULL || t->object == NULL || t->inst == NULL)
+	{
+		return;
+	}
+
 	struct TrackerWeapon *tw;
 
 	tw = t->object;
@@ -150,6 +155,11 @@ void RB_Warpball_Start(struct TrackerWeapon *tw)
 // NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 231 0x800ae7dc-0x800aeaac.
 struct Driver *RB_Warpball_GetDriverTarget(struct TrackerWeapon *tw, struct Instance *inst)
 {
+	if (tw == NULL || inst == NULL || sdata == NULL || sdata->gGT == NULL)
+	{
+		return NULL;
+	}
+
 	struct GameTracker *gGT = sdata->gGT;
 	struct Driver *bestDriver = NULL;
 
@@ -166,6 +176,11 @@ struct Driver *RB_Warpball_GetDriverTarget(struct TrackerWeapon *tw, struct Inst
 		}
 
 		return bestDriver;
+	}
+
+	if (gGT->level1 == NULL || gGT->level1->ptr_restart_points == NULL || tw->ptrNodeCurr == NULL)
+	{
+		return NULL;
 	}
 
 	struct CheckpointNode *nodes = gGT->level1->ptr_restart_points;
@@ -366,7 +381,10 @@ void RB_Warpball_TurnAround(struct Thread *t)
 		    // is null, so warpball is chasing nobody
 		    (tw->driverTarget == 0))
 		{
-			tw->driverParent->instBombThrow = 0;
+			if (tw != NULL && tw->driverParent != NULL)
+			{
+				tw->driverParent->instBombThrow = 0;
+			}
 
 			// play sound warpball death
 			PlaySound3D(0x4f, inst);
@@ -426,6 +444,11 @@ static void RB_Warpball_SetQuadblockIndex(struct TrackerWeapon *tw, struct Scrat
 // NOTE(aalhendi): Native uses the extracted warpball particle-height halfword from RDATA 0x800b2c84.
 void RB_Warpball_ThTick(struct Thread *t)
 {
+	if (t == NULL || t->inst == NULL || t->object == NULL || sdata == NULL || sdata->gGT == NULL)
+	{
+		return;
+	}
+
 	struct GameTracker *gGT;
 	struct TrackerWeapon *tw;
 	struct Instance *inst;
@@ -711,7 +734,7 @@ void RB_Warpball_ThTick(struct Thread *t)
 
 	hitInst = RB_Hazard_CollideWithDrivers(inst, tw->parentSafetyFrames, 0x9000, tw->instParent);
 
-	if (hitInst != NULL)
+	if (hitInst != NULL && hitInst->thread != NULL && hitInst->thread->object != NULL)
 	{
 		struct Driver *hitDriver = hitInst->thread->object;
 
@@ -728,7 +751,10 @@ void RB_Warpball_ThTick(struct Thread *t)
 
 			if ((((flagsBeforeHit & TRACKER_FLAG_POWERED_UP) == 0) && (tw->driverTarget == hitDriver)) || (hitDriver->driverRank == 0))
 			{
-				tw->driverParent->instBombThrow = NULL;
+				if (tw != NULL && tw->driverParent != NULL)
+				{
+					tw->driverParent->instBombThrow = NULL;
+				}
 				RB_Warpball_Death(t);
 				return;
 			}
@@ -752,7 +778,10 @@ void RB_Warpball_ThTick(struct Thread *t)
 
 				if (tw->driverTarget == NULL)
 				{
-					tw->driverParent->instBombThrow = NULL;
+					if (tw != NULL && tw->driverParent != NULL)
+					{
+						tw->driverParent->instBombThrow = NULL;
+					}
 					RB_Warpball_Death(t);
 				}
 				else
@@ -784,7 +813,7 @@ void RB_Warpball_ThTick(struct Thread *t)
 	{
 		hitInst = RB_Hazard_CollideWithBucket(inst, t, gGT->threadBuckets[MINE].thread, tw->parentSafetyFrames, 0x2400, tw->instParent);
 
-		if (hitInst != NULL)
+		if (hitInst != NULL && hitInst->thread != NULL && hitInst->thread->funcThCollide != NULL)
 		{
 			struct Thread *hitTh = hitInst->thread;
 

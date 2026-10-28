@@ -363,17 +363,20 @@ void AA_EndEvent_DrawMenu(void)
 			// print a single character, a number 1-8,
 			DecalFont_DrawLine((char *)&s_driverRankString222, letterPos.x + 0x20, 0x5f, FONT_SMALL, WHITE);
 
-			// Draw the driver's character icon
-			UI_DrawDriverIconForDriver(gGT->driversInRaceOrder[i]->driverID,
+			if (gGT->driversInRaceOrder[i] != NULL)
+			{
+				// Draw the driver's character icon
+				UI_DrawDriverIconForDriver(gGT->driversInRaceOrder[i]->driverID,
 
-			    gGT->ptrIcons[data.MetaDataCharacters[data.characterIDs[gGT->driversInRaceOrder[i]->driverID]].iconID],
+				    gGT->ptrIcons[data.MetaDataCharacters[data.characterIDs[gGT->driversInRaceOrder[i]->driverID]].iconID],
 
-			    letterPos.x, 0x60, &gGT->backBuffer->primMem,
+				    letterPos.x, 0x60, &gGT->backBuffer->primMem,
 
-			    // pointer to OT mem
-			    gGT->pushBuffer_UI.ptrOT,
+				    // pointer to OT mem
+				    gGT->pushBuffer_UI.ptrOT,
 
-			    1, AA_DRIVER_ICON_SCALE, MakeColor(AA_DRIVER_ICON_GRAY_CHANNEL, AA_DRIVER_ICON_GRAY_CHANNEL, AA_DRIVER_ICON_GRAY_CHANNEL).self);
+				    1, AA_DRIVER_ICON_SCALE, MakeColor(AA_DRIVER_ICON_GRAY_CHANNEL, AA_DRIVER_ICON_GRAY_CHANNEL, AA_DRIVER_ICON_GRAY_CHANNEL).self);
+			}
 		}
 	}
 

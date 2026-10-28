@@ -269,29 +269,47 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 					if ((gGT->gameMode1 & END_OF_RACE) == 0)
 					{
 						gGT->elapsedEventTime += gGT->elapsedTimeMS;
+#if defined(CTR_NATIVE)
+						if (NativeAdhoc_IsClient() && NativeAdhoc_IsSimulationActive())
+						{
+							for (int dIdx = 0; dIdx < 8; dIdx++)
+							{
+								struct Driver *cd = gGT->drivers[dIdx];
+								if (cd != NULL && (cd->actionsFlagSet & ACTION_RACE_FINISHED) == 0)
+								{
+									cd->timeElapsedInRace = gGT->elapsedEventTime;
+								}
+							}
+						}
+#endif
 					}
 				}
 				else
 				{
-					iVar4 = gGT->frozenTimeRemaining - gGT->elapsedTimeMS;
-					gGT->frozenTimeRemaining = iVar4;
-					if (iVar4 < 0)
+#if defined(CTR_NATIVE)
+					if (!NativeAdhoc_IsClient() || !NativeAdhoc_IsSimulationActive())
+#endif
 					{
-						gGT->frozenTimeRemaining = 0;
-					}
-					else
-					{
-						uVar3 = gGT->timer;
-						// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80034f84-0x80034fec for frozen-time tick SFX.
-						if (uVar3 == (uVar3 / FPS_DOUBLE(6)) * FPS_DOUBLE(6))
+						iVar4 = gGT->frozenTimeRemaining - gGT->elapsedTimeMS;
+						gGT->frozenTimeRemaining = iVar4;
+						if (iVar4 < 0)
 						{
-							if (uVar3 == (uVar3 / FPS_DOUBLE(0xc)) * FPS_DOUBLE(0xc))
+							gGT->frozenTimeRemaining = 0;
+						}
+						else
+						{
+							uVar3 = gGT->timer;
+							// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80034f84-0x80034fec for frozen-time tick SFX.
+							if (uVar3 == (uVar3 / FPS_DOUBLE(6)) * FPS_DOUBLE(6))
 							{
-								OtherFX_Play_LowLevel(0x40, '\0', 0x8c9080);
-							}
-							else
-							{
-								OtherFX_Play_LowLevel(0x40, '\0', 0x8c8880);
+								if (uVar3 == (uVar3 / FPS_DOUBLE(0xc)) * FPS_DOUBLE(0xc))
+								{
+									OtherFX_Play_LowLevel(0x40, '\0', 0x8c9080);
+								}
+								else
+								{
+									OtherFX_Play_LowLevel(0x40, '\0', 0x8c8880);
+								}
 							}
 						}
 					}
@@ -350,6 +368,13 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 
 		for (iVar4 = 0; iVar4 < PAUSE; iVar4++)
 		{
+#if defined(CTR_NATIVE)
+			// In authoritative multiplayer, bots are simulated exclusively on the host
+			if (NativeAdhoc_IsClient() && NativeAdhoc_IsSimulationActive() && (iVar4 == ROBOT))
+			{
+				continue;
+			}
+#endif
 			if ((((gGT->gameMode1 & DEBUG_MENU) == 0) || ((gGT->threadBuckets[iVar4].boolCantPause & 1) != 0)) &&
 
 			    // if threads exist
@@ -357,6 +382,10 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 			{
 				if (iVar4 == 0)
 				{
+#if defined(CTR_NATIVE)
+					if (!NativeAdhoc_IsClient() || !NativeAdhoc_IsSimulationActive())
+					{
+#endif
 					for (psVar12 = gGT->threadBuckets[iVar4].thread; psVar12 != 0; psVar12 = psVar12->siblingThread)
 					{
 						if (psVar12->object != NULL)
@@ -364,6 +393,9 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 							VehPickupItem_ShootOnCirclePress((struct Driver *)psVar12->object);
 						}
 					}
+#if defined(CTR_NATIVE)
+					}
+#endif
 
 					// run all driver funcPtrs,
 					// all drivers must run the same DRIVER_FUNC_* stage
@@ -385,6 +417,25 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 								continue;
 							}
 
+#if defined(CTR_NATIVE)
+							// On client, remote drivers (other players & bots) only run presentation (audio, animate, particles).
+							// Their position, orientation and physics are authoritative from the host packets.
+							// The local player on the client still runs full driving/powerslide/effects locally.
+							if (NativeAdhoc_IsClient() && NativeAdhoc_IsSimulationActive())
+							{
+								if (psVar9->driverID != (u8)NativeAdhoc_GetLocalPlayerIndex())
+								{
+									if ((iVar11 != DRIVER_FUNC_INIT) &&
+									    (iVar11 != DRIVER_FUNC_AUDIO) &&
+									    (iVar11 != DRIVER_FUNC_ANIMATE) &&
+									    (iVar11 != DRIVER_FUNC_PARTICLES))
+									{
+										continue;
+									}
+								}
+							}
+#endif
+
 							pcVar5 = psVar9->funcPtrs[iVar11];
 
 							if (pcVar5 != 0)
@@ -400,7 +451,10 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 		}
 
 #if defined(CTR_NATIVE)
-		BOTS_UpdateGlobals();
+		if (!NativeAdhoc_IsClient() || !NativeAdhoc_IsSimulationActive())
+		{
+			BOTS_UpdateGlobals();
+		}
 #endif
 		GhostTape_WriteMoves(0);
 		gGT->unk1cc4[4] = (u32)(gGT->unk1cc4[4] * 10000) / 0x147e;

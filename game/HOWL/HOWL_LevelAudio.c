@@ -372,6 +372,9 @@ static u32 PlaySound3D_BuildFlags(struct GameTracker *gGT, int cameraIndex, u32 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002f0dc-0x8002f31c
 void PlaySound3D(u32 soundID, struct Instance *inst)
 {
+	if (inst == NULL)
+		return;
+
 	struct GameTracker *gGT = sdata->gGT;
 	s32 dir[4][3];
 	u32 distance[4];
@@ -382,6 +385,8 @@ void PlaySound3D(u32 soundID, struct Instance *inst)
 	if (NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame >= 2) && ((gGT->gameMode1 & MAIN_MENU) == 0))
 	{
 		int i = NativeAdhoc_GetLocalPlayerIndex();
+		if (i < 0 || i >= 4)
+			i = 0;
 		dir[i][0] = CTR_MipsSubLo(inst->matrix.t[0], gGT->pushBuffer[i].pos.x);
 		dir[i][1] = CTR_MipsSubLo(inst->matrix.t[1], gGT->pushBuffer[i].pos.y);
 		dir[i][2] = CTR_MipsSubLo(inst->matrix.t[2], gGT->pushBuffer[i].pos.z);
@@ -395,7 +400,7 @@ void PlaySound3D(u32 soundID, struct Instance *inst)
 	else
 #endif
 	{
-		for (int i = 0; i < gGT->numPlyrCurrGame; i++)
+		for (int i = 0; (i < gGT->numPlyrCurrGame) && (i < 4); i++)
 		{
 			dir[i][0] = CTR_MipsSubLo(inst->matrix.t[0], gGT->pushBuffer[i].pos.x);
 			dir[i][1] = CTR_MipsSubLo(inst->matrix.t[1], gGT->pushBuffer[i].pos.y);
@@ -446,6 +451,9 @@ static u32 PlaySound3D_Flags_BuildFlags(struct GameTracker *gGT, int cameraIndex
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002f31c-0x8002f5f4
 void PlaySound3D_Flags(u32 *flags, u32 soundID, struct Instance *inst)
 {
+	if (inst == NULL)
+		return;
+
 	struct GameTracker *gGT = sdata->gGT;
 	s32 dir[4][3];
 	u32 distance[4];
@@ -468,6 +476,8 @@ void PlaySound3D_Flags(u32 *flags, u32 soundID, struct Instance *inst)
 	if (NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame >= 2) && ((gGT->gameMode1 & MAIN_MENU) == 0))
 	{
 		int i = NativeAdhoc_GetLocalPlayerIndex();
+		if (i < 0 || i >= 4)
+			i = 0;
 		dir[i][0] = CTR_MipsSubLo(inst->matrix.t[0], gGT->pushBuffer[i].pos.x);
 		dir[i][1] = CTR_MipsSubLo(inst->matrix.t[1], gGT->pushBuffer[i].pos.y);
 		dir[i][2] = CTR_MipsSubLo(inst->matrix.t[2], gGT->pushBuffer[i].pos.z);
@@ -481,7 +491,7 @@ void PlaySound3D_Flags(u32 *flags, u32 soundID, struct Instance *inst)
 	else
 #endif
 	{
-		for (int i = 0; i < gGT->numPlyrCurrGame; i++)
+		for (int i = 0; (i < gGT->numPlyrCurrGame) && (i < 4); i++)
 		{
 			dir[i][0] = CTR_MipsSubLo(inst->matrix.t[0], gGT->pushBuffer[i].pos.x);
 			dir[i][1] = CTR_MipsSubLo(inst->matrix.t[1], gGT->pushBuffer[i].pos.y);

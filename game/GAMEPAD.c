@@ -1081,6 +1081,11 @@ int GAMEPAD_ProcessAnyoneVars(struct GamepadSystem *gGamepads)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800263a0-0x800263fc
 void GAMEPAD_JogCon1(struct Driver *d, u8 val, u16 timeMS)
 {
+	if ((d == NULL) || (sdata == NULL) || (sdata->gGamepads == NULL) || (d->driverID >= 4))
+	{
+		return;
+	}
+
 	if ((d->actionsFlagSet & ACTION_BOT) != 0)
 	{
 		return;
@@ -1101,6 +1106,11 @@ void GAMEPAD_JogCon1(struct Driver *d, u8 val, u16 timeMS)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800263fc-0x80026440.
 void GAMEPAD_JogCon2(struct Driver *d, u8 val, s16 timeMS)
 {
+	if ((d == NULL) || (sdata == NULL) || (sdata->gGamepads == NULL) || (d->driverID >= 4))
+	{
+		return;
+	}
+
 	if ((d->actionsFlagSet & ACTION_BOT) != 0)
 	{
 		return;
@@ -1116,6 +1126,11 @@ void GAMEPAD_JogCon2(struct Driver *d, u8 val, s16 timeMS)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80026440-0x800264c0.
 void GAMEPAD_ShockFreq(struct Driver *d, int frame, int val)
 {
+	if ((d == NULL) || (sdata == NULL) || (sdata->gGT == NULL) || (sdata->gGamepads == NULL) || (d->driverID >= 4))
+	{
+		return;
+	}
+
 	if ((d->actionsFlagSet & ACTION_BOT) != 0)
 	{
 		return;
@@ -1148,6 +1163,11 @@ void GAMEPAD_ShockFreq(struct Driver *d, int frame, int val)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800264c0-0x80026540.
 void GAMEPAD_ShockForce1(struct Driver *d, int frame, int val)
 {
+	if ((d == NULL) || (sdata == NULL) || (sdata->gGT == NULL) || (sdata->gGamepads == NULL) || (d->driverID >= 4))
+	{
+		return;
+	}
+
 	if ((d->actionsFlagSet & ACTION_BOT) != 0)
 	{
 		return;
@@ -1180,6 +1200,11 @@ void GAMEPAD_ShockForce1(struct Driver *d, int frame, int val)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80026540-0x800265c0.
 void GAMEPAD_ShockForce2(struct Driver *d, int frame, int val)
 {
+	if ((d == NULL) || (sdata == NULL) || (sdata->gGT == NULL) || (sdata->gGamepads == NULL) || (d->driverID >= 4))
+	{
+		return;
+	}
+
 	if ((d->actionsFlagSet & ACTION_BOT) != 0)
 	{
 		return;

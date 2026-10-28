@@ -32,6 +32,11 @@ struct Driver *RB_CrateAny_GetDriver(struct Thread *t, struct ScratchpadStruct *
 	int hitModelIDValue;
 	struct Driver *driver;
 
+	if (t == NULL)
+	{
+		return (struct Driver *)1;
+	}
+
 	// get what hit the box
 	hitModelID = sps->Input1.modelID;
 	hitModelIDValue = hitModelID & COLL_MODELID_VALUE_MASK;
@@ -44,9 +49,13 @@ struct Driver *RB_CrateAny_GetDriver(struct Thread *t, struct ScratchpadStruct *
 	)
 	{
 		// get driver that used the weapon
-		driver = ((struct TrackerWeapon *)t->object)->driverParent;
+		if (t->object != NULL)
+		{
+			driver = ((struct TrackerWeapon *)t->object)->driverParent;
+			return driver;
+		}
 
-		return driver;
+		return NULL;
 	}
 
 	// if driver itself
@@ -95,7 +104,7 @@ static int RB_CrateAny_ShouldPlayBreakSound(struct Driver *driver)
 	return 1;
 }
 
-static void RB_CrateAny_ExplodeInit(struct Instance *crateInst, int color, b32 randomizeRotation, int playSound)
+void RB_CrateAny_ExplodeInit(struct Instance *crateInst, int color, b32 randomizeRotation, int playSound)
 {
 	struct Instance *explosionInst;
 	MATRIX matrix;
@@ -118,29 +127,32 @@ static void RB_CrateAny_ExplodeInit(struct Instance *crateInst, int color, b32 r
 	    // PushBuffer and threadRelative
 	    0, 0);
 
-	// color
-	explosionInst->colorRGBA = color;
-	explosionInst->alphaScale = 0x1000;
-
-	if (randomizeRotation)
+	if (explosionInst != NULL)
 	{
-		// position
-		explosionInst->matrix.t[0] = crateInst->matrix.t[0];
-		explosionInst->matrix.t[1] = crateInst->matrix.t[1];
-		explosionInst->matrix.t[2] = crateInst->matrix.t[2];
+		// color
+		explosionInst->colorRGBA = color;
+		explosionInst->alphaScale = 0x1000;
 
-		// rotation matrix
-		rot.x = 0;
-		rot.y = rand() % 0xfff;
-		rot.z = 0;
-		ConvertRotToMatrix(&matrix, &rot);
+		if (randomizeRotation)
+		{
+			// position
+			explosionInst->matrix.t[0] = crateInst->matrix.t[0];
+			explosionInst->matrix.t[1] = crateInst->matrix.t[1];
+			explosionInst->matrix.t[2] = crateInst->matrix.t[2];
 
-		// explosion matrix = rotated crate matrix
-		MatrixRotate(&explosionInst->matrix, &crateInst->matrix, &matrix);
-	}
-	else
-	{
-		explosionInst->matrix = crateInst->matrix;
+			// rotation matrix
+			rot.x = 0;
+			rot.y = rand() % 0xfff;
+			rot.z = 0;
+			ConvertRotToMatrix(&matrix, &rot);
+
+			// explosion matrix = rotated crate matrix
+			MatrixRotate(&explosionInst->matrix, &crateInst->matrix, &matrix);
+		}
+		else
+		{
+			explosionInst->matrix = crateInst->matrix;
+		}
 	}
 
 	if (playSound)

@@ -1,0 +1,14 @@
+{
+  "name": "ctr-turbocharged-server",
+  "version": "1.0.0",
+  "description": "Lobby and UDP Relay Server for Crash Team Racing: Turbocharged Online Multiplayer",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test tests/server.test.js"
+  },
+  "keywords": ["ctr", "multiplayer", "lobby", "relay", "udp"],
+  "author": "Lucas",
+  "license": "MIT"
+}

@@ -43,6 +43,11 @@ void RB_Potion_OnShatter_TeethSearch(struct Instance *inst)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ac6b4-0x800aca50.
 void RB_Potion_ThTick_InAir(struct Thread *t)
 {
+	if (t == NULL || t->inst == NULL || t->object == NULL || sdata == NULL || sdata->gGT == NULL || sdata->gGT->level1 == NULL || sdata->gGT->level1->ptr_mesh_info == NULL)
+	{
+		return;
+	}
+
 	struct GameTracker *gGT;
 	struct Instance *inst;
 	struct MineWeapon *mw;

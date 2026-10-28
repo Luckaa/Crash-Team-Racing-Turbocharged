@@ -233,9 +233,12 @@ void PlayLevel_UpdateLapStats(void)
 						gGT->winnerIndex[PLAYLEVEL_FIRST_WINNER_INDEX] = driverID;
 
 						// edit window variables for confetti
-						gGT->pushBuffer[driverID].fadeFromBlack_currentValue = PLAYLEVEL_WINNER_FADE_CURRENT;
-						gGT->pushBuffer[driverID].fadeFromBlack_desiredResult = PLAYLEVEL_WINNER_FADE_DESIRED;
-						gGT->pushBuffer[driverID].fade_step = PLAYLEVEL_WINNER_FADE_STEP;
+						if (driverID < 4)
+						{
+							gGT->pushBuffer[driverID].fadeFromBlack_currentValue = PLAYLEVEL_WINNER_FADE_CURRENT;
+							gGT->pushBuffer[driverID].fadeFromBlack_desiredResult = PLAYLEVEL_WINNER_FADE_DESIRED;
+							gGT->pushBuffer[driverID].fade_step = PLAYLEVEL_WINNER_FADE_STEP;
+						}
 					}
 					if (currDriver->noItemTimer != 0)
 					{
@@ -423,16 +426,19 @@ void PlayLevel_UpdateLapStats(void)
 
 		int currRank = currDriver->driverRank;
 
-		if ((PLAYLEVEL_UNSORTED_RANK < currRank) && (PLAYLEVEL_PASS_VOICELINE_DELAY < gGT->elapsedEventTime) &&
+		if ((currRank > 0) && (currRank < 8) && (PLAYLEVEL_PASS_VOICELINE_DELAY < gGT->elapsedEventTime) &&
 		    ((s8)gGT->humanPlayerPositions[driverIndex] < currRank))
 		{
 			struct Driver *voiceDriver = gGT->driversInRaceOrder[currRank - 1];
 			// Make driver talk
-#if defined(CTR_NATIVE)
-			if (NativeAdhoc_ShouldPresentDriver(voiceDriver->driverID))
-#endif
+			if (voiceDriver != NULL)
 			{
-				Voiceline_RequestPlayDriver(PLAYLEVEL_PASS_VOICELINE, voiceDriver->driverID, PLAYLEVEL_VOICELINE_FLAGS);
+#if defined(CTR_NATIVE)
+				if (NativeAdhoc_ShouldPresentDriver(voiceDriver->driverID))
+#endif
+				{
+					Voiceline_RequestPlayDriver(PLAYLEVEL_PASS_VOICELINE, voiceDriver->driverID, PLAYLEVEL_VOICELINE_FLAGS);
+				}
 			}
 		}
 		gGT->humanPlayerPositions[driverIndex] = currRank;

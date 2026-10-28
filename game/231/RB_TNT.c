@@ -1,5 +1,9 @@
 #include <common.h>
 
+#if defined(CTR_NATIVE)
+#include "platform/native_adhoc.h"
+#endif
+
 // In air, after spamming L1 or R1,
 // will explode on impact with ground
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ad310-0x800ad44c.
@@ -88,6 +92,11 @@ void RB_TNT_ThTick_SitOnHead(struct Thread *t)
 
 	// object (tnt)
 	mw = t->object;
+	if (mw == NULL || mw->driverTarget == NULL || mw->driverTarget->instSelf == NULL)
+	{
+		t->flags |= THREAD_FLAG_DEAD;
+		return;
+	}
 
 	// CopyMatrix
 	// To: TNT instance
@@ -212,11 +221,21 @@ LAB_800ad5f8:
 	else
 	{
 		// Blow up
+#if defined(CTR_NATIVE)
+		if (NativeAdhoc_ShouldProcessItemCollisions())
+#endif
+		{
+			struct Driver *attacker = VehPickupItem_FindDriverByInstance(mw->instParent);
+			if (mw->driverTarget != NULL)
+			{
+				RB_Hazard_HurtDriver(mw->driverTarget, 2, attacker, 0);
 
-		RB_Hazard_HurtDriver(mw->driverTarget, 2, mw->instParent->thread->object, 0);
+				// icon damage timer, draw icon as red
+				mw->driverTarget->damageColorTimer = 0x1e;
 
-		// icon damage timer, draw icon as red
-		mw->driverTarget->damageColorTimer = 0x1e;
+				mw->driverTarget->instTntRecv = NULL;
+			}
+		}
 
 		// play 3D sound for TNT explosion
 		PlaySound3D(0x3d, inst);
@@ -225,8 +244,6 @@ LAB_800ad5f8:
 
 		// this thread is now dead
 		t->flags |= THREAD_FLAG_DEAD;
-
-		mw->driverTarget->instTntRecv = NULL;
 		return;
 	}
 
@@ -254,9 +271,19 @@ void RB_TNT_ThTick_ThrowOnHead(struct Thread *t)
 	MATRIX localMatrix;
 
 	inst = t->inst;
+	if (inst == NULL || inst->thread == NULL)
+	{
+		t->flags |= THREAD_FLAG_DEAD;
+		return;
+	}
 
 	// object
 	mw = inst->thread->object;
+	if (mw == NULL || mw->driverTarget == NULL || mw->driverTarget->instSelf == NULL)
+	{
+		t->flags |= THREAD_FLAG_DEAD;
+		return;
+	}
 
 	// alter height of TNT as it flies onto a driver's head,
 	// do NOT use parenthesis

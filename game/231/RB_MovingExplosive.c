@@ -6,6 +6,10 @@
 
 static void RB_MovingExplosive_CallThCollide(struct Thread *hitTh, struct Thread *sourceTh)
 {
+	if (hitTh == NULL || hitTh->funcThCollide == NULL)
+	{
+		return;
+	}
 	void *funcThCollide = hitTh->funcThCollide;
 	((ThreadScratchCollideFunc)funcThCollide)(hitTh, sourceTh, funcThCollide, NULL);
 }
@@ -14,6 +18,11 @@ static void RB_MovingExplosive_CallThCollide(struct Thread *hitTh, struct Thread
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800adb50-0x800ae478.
 void RB_MovingExplosive_ThTick(struct Thread *t)
 {
+	if (t == NULL || t->inst == NULL || t->inst->model == NULL || t->object == NULL || sdata == NULL || sdata->gGT == NULL)
+	{
+		return;
+	}
+
 	s16 desiredRotY;
 	struct GameTracker *gGT = sdata->gGT;
 	s16 modelID;
@@ -385,6 +394,11 @@ LAB_800adc08:;
 			// if bomb collides with Tracker
 			else
 			{
+				if (hitInst == NULL || hitInst->model == NULL)
+				{
+					return;
+				}
+
 				// not a missile
 				if (hitInst->model->id != DYNAMIC_ROCKET)
 				{
@@ -402,7 +416,7 @@ LAB_800adc08:;
 		// if mine was hit
 		else
 		{
-			struct Thread *hitTh = hitInst->thread;
+			struct Thread *hitTh = (hitInst != NULL) ? hitInst->thread : NULL;
 
 			RB_MovingExplosive_CallThCollide(hitTh, t);
 		}
@@ -411,16 +425,19 @@ LAB_800adc08:;
 	// if driver was hit
 	else
 	{
-		struct Thread *hitTh = hitInst->thread;
-
-		struct Driver *hitD = hitTh->object;
-
-		hitD->damageColorTimer = 0x1e;
-
-		if (hitD == tw->driverTarget)
+		if (hitInst != NULL && hitInst->thread != NULL && hitInst->thread->object != NULL)
 		{
-			// flags
-			tw->flags |= 0x10;
+			struct Thread *hitTh = hitInst->thread;
+
+			struct Driver *hitD = hitTh->object;
+
+			hitD->damageColorTimer = 0x1e;
+
+			if (hitD == tw->driverTarget)
+			{
+				// flags
+				tw->flags |= 0x10;
+			}
 		}
 	}
 LAB_800ae42c:
@@ -435,18 +452,26 @@ void RB_MovingExplosive_Explode(struct Thread *t, struct Instance *inst, struct 
 	s16 soundId;
 	struct Driver *d;
 
+	if (t == NULL || inst == NULL || inst->model == NULL)
+	{
+		return;
+	}
+
 	// bomb
 	if (inst->model->id == DYNAMIC_BOMB)
 	{
 		// bomb explode
 		soundId = 0x49;
-		tw->driverParent->instBombThrow = NULL;
+		if (tw != NULL && tw->driverParent != NULL)
+		{
+			tw->driverParent->instBombThrow = NULL;
+		}
 	}
 
 	// missile
 	else
 	{
-		d = tw->driverTarget;
+		d = (tw != NULL) ? tw->driverTarget : NULL;
 		if (d != NULL)
 		{
 			// remove 2D square-target being drawn on the player's screen
@@ -460,7 +485,10 @@ void RB_MovingExplosive_Explode(struct Thread *t, struct Instance *inst, struct 
 	PlaySound3D(soundId, inst);
 
 	// stop audio of rolling
-	OtherFX_RecycleMute(&tw->soundIDCount);
+	if (tw != NULL)
+	{
+		OtherFX_RecycleMute(&tw->soundIDCount);
+	}
 
 	RB_Burst_Init(inst);
 

@@ -540,7 +540,7 @@ void CAM_StartOfRace(struct CameraDC *cDC)
 		// if 1 or less screens
 		cDC->transitionFrame = FPS_DOUBLE(0xA5);
 #if defined(CTR_NATIVE)
-		if (!NativeAdhoc_IsConnected() && (gGT->numPlyrCurrGame > 1))
+		if ((gGT->numPlyrCurrGame > 1) && !NativeAdhoc_IsActive())
 #else
 		if (gGT->numPlyrCurrGame > 1)
 #endif
@@ -1165,7 +1165,8 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 	struct ScratchpadStruct *sps = (struct ScratchpadStruct *)scratchWork;
 	struct CameraScratch *cam = &scratchWork->camera;
 	struct GameTracker *gGT = sdata->gGT;
-	struct GamepadBuffer *pad = &sdata->gGamepads->gamepad[d->driverID];
+	int padIndex = (d != NULL && d->driverID < 8) ? d->driverID : 0;
+	struct GamepadBuffer *pad = (sdata != NULL && sdata->gGamepads != NULL) ? &sdata->gGamepads->gamepad[padIndex] : NULL;
 	s8 state;
 	s16 uVar8;
 	s16 sVar10;
@@ -1195,7 +1196,7 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 	    ((gGT->gameMode1 & START_OF_RACE) == 0) &&
 
 	    // If you are holding R2
-	    ((pad->buttonsHeldCurrFrame & 0x200) != 0))
+	    ((pad != NULL) && ((pad->buttonsHeldCurrFrame & 0x200) != 0)))
 	{
 		// Reverse the camera
 		cDC->flags |= CAMERA_FLAG_REVERSE;
@@ -1977,9 +1978,18 @@ void CAM_ThTick(struct Thread *t)
 	struct CameraScratchWork *scratchWork = CTR_SCRATCHPAD_PTR(struct CameraScratchWork, 0x108);
 	scratchpad = (s16 *)scratchWork;
 	struct CameraScratch *camThTick = &scratchWork->camera;
+	if (t == NULL || t->inst == NULL || sdata == NULL || sdata->gGT == NULL)
+	{
+		return;
+	}
 	cDC = (struct CameraDC *)t->inst;
 	d = cDC->driverToFollow;
 	pb = cDC->pushBuffer;
+
+	if (d == NULL || d->instSelf == NULL || d->instSelf->thread == NULL || pb == NULL)
+	{
+		return;
+	}
 
 	if ((cDC->flags & CAMERA_FLAG_FROZEN) != 0)
 	{
@@ -1989,7 +1999,7 @@ void CAM_ThTick(struct Thread *t)
 	if (((((gGT->gameMode1 & (PAUSE_ALL | START_OF_RACE | MAIN_MENU | GAME_CUTSCENE)) == 0) && (d->instSelf->thread->funcThTick == 0)) &&
 	     ((d->actionsFlagSet & ACTION_BOT) == 0)) &&
 	    (((d->kartState != KS_WARP_PAD && (d->kartState != KS_FREEZE)) &&
-	      (((gGT->gameMode2 & 4) == 0 && ((sdata->gGamepads->gamepad[cDC->cameraID].buttonsTapped & BTN_L2_one) != 0))))))
+	      (((gGT->gameMode2 & 4) == 0 && (cDC->cameraID < 8 && sdata->gGamepads != NULL && ((sdata->gGamepads->gamepad[cDC->cameraID].buttonsTapped & BTN_L2_one) != 0)))))))
 	{
 		uVar4 = cDC->zoomToggleState + 1;
 		cDC->zoomToggleState = uVar4;

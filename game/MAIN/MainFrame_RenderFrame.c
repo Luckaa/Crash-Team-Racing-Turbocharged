@@ -674,9 +674,13 @@ void RenderAllConfetti(struct GameTracker *gGT)
 		return;
 	}
 
-	for (i = 0; i < numWinners; i++)
+	for (i = 0; i < numWinners && i < 4; i++)
 	{
-		DrawConfetti(&gGT->pushBuffer[gGT->winnerIndex[i]], &gGT->backBuffer->primMem, &gGT->confetti, gGT->frameTimer_Confetti, gGT->gameMode1 & PAUSE_ALL);
+		u8 wId = gGT->winnerIndex[i];
+		if (wId < 4)
+		{
+			DrawConfetti(&gGT->pushBuffer[wId], &gGT->backBuffer->primMem, &gGT->confetti, gGT->frameTimer_Confetti, gGT->gameMode1 & PAUSE_ALL);
+		}
 	}
 }
 

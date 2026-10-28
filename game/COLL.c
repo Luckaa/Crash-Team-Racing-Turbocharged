@@ -1409,6 +1409,10 @@ void COLL_FIXED_PlayerSearch(struct Thread *t, struct Driver *d)
 			inst->vertSplit = 0;
 			inst->flags |= SPLIT_LINE;
 		}
+		else
+		{
+			inst->flags &= ~SPLIT_LINE;
+		}
 
 		if (gGT->numPlyrCurrGame < 2)
 		{
@@ -1442,7 +1446,7 @@ void COLL_FIXED_PlayerSearch(struct Thread *t, struct Driver *d)
 
 		d->underDriver = quad;
 
-		if ((d->posCurr.y <= d->quadBlockHeight + 0x1000) || ((quad->terrain_type == TERRAIN_MUD) && (d->posCurr.y < 1)))
+		if ((d->posCurr.y <= d->quadBlockHeight + 0x1000) || (((quad->terrain_type == TERRAIN_MUD) || (quad->terrain_type == TERRAIN_WATER) || (quad->terrain_type == TERRAIN_FASTWATER)) && (d->posCurr.y < 1)))
 		{
 			if ((quad->quadFlags & QUADBLOCK_FLAG_GROUND) != 0)
 			{
@@ -1465,9 +1469,12 @@ void COLL_FIXED_PlayerSearch(struct Thread *t, struct Driver *d)
 		d->terrainMeta2 = VehAfterColl_GetTerrain(TERRAIN_NONE);
 	}
 
-	if (d->posCurr.y < CTR_MipsSll(CTR_MipsSubLo(level->ptr_mesh_info->bspRoot->box.min.y, 0x40), 8))
+	if ((level != NULL) && (level->ptr_mesh_info != NULL) && (level->ptr_mesh_info->bspRoot != NULL))
 	{
-		d->collisionFlags |= DRIVER_COLL_FLAG_MASK_GRAB_REQUEST;
+		if (d->posCurr.y < CTR_MipsSll(CTR_MipsSubLo(level->ptr_mesh_info->bspRoot->box.min.y, 0x400), 8))
+		{
+			d->collisionFlags |= DRIVER_COLL_FLAG_MASK_GRAB_REQUEST;
+		}
 	}
 
 	s32 landingDelta = CTR_MipsSubLo(d->velocity.y, d->ySpeed);
@@ -1698,7 +1705,7 @@ UpdateGroundOffset:
 		d->Screen_OffsetY = (s8)CTR_MipsAddLo((u8)d->Screen_OffsetY, 3);
 	}
 
-	if ((d->posCurr.y < -0x8000) && ((level->configFlags & 2) != 0))
+	if ((d->posCurr.y < -0x8000) && (level != NULL) && ((level->configFlags & 2) != 0))
 	{
 		d->collisionFlags |= DRIVER_COLL_FLAG_MASK_GRAB_REQUEST;
 	}

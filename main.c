@@ -115,6 +115,7 @@ int gNativeRelicRaceResultTier = -1;
 #include "platform/native_user_id.c"
 #include "platform/native_discord.c"
 #include "platform/native_leaderboard.c"
+#include "platform/native_lobby_client.c"
 #include "platform/native_adhoc.c"
 #include "platform/native_mp_test.c"
 #include "platform/native_inline_c.c"

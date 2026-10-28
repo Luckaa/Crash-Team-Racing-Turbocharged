@@ -3,6 +3,11 @@
 // NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 231 0x800b38e4-0x800b3978.
 void RB_Blade_ThTick(struct Thread *t)
 {
+	if (t == NULL || t->object == NULL || t->inst == NULL || t->inst->instDef == NULL || sdata == NULL || sdata->gGT == NULL)
+	{
+		return;
+	}
+
 	struct Blade *bladeObj;
 	struct Instance *bladeInst;
 	SVec3 rot;

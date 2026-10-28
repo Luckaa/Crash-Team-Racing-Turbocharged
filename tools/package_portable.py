@@ -16,9 +16,7 @@ def create_package(custom_host_ip=None):
     if not exe_path.exists():
         raise FileNotFoundError(f"Executable not found at {exe_path}")
 
-    # Clean target folder
-    if STANDALONE_DIR.exists():
-        shutil.rmtree(STANDALONE_DIR)
+    # Ensure target folder exists
     STANDALONE_DIR.mkdir(parents=True, exist_ok=True)
 
     # 1. Copy Executable
@@ -55,7 +53,7 @@ def create_package(custom_host_ip=None):
     
     assets_dst = STANDALONE_DIR / "assets"
     print(f"[+] Copying assets from {assets_src} (including ctr-u.bin)...")
-    shutil.copytree(assets_src, assets_dst)
+    shutil.copytree(assets_src, assets_dst, dirs_exist_ok=True)
 
     # 5. Create JOGAR.bat inside standalone folder
     jogar_bat = STANDALONE_DIR / "JOGAR.bat"
@@ -173,55 +171,87 @@ def create_package(custom_host_ip=None):
     if wifi_src.exists():
         shutil.copy2(wifi_src, STANDALONE_DIR / "VER_MEU_IP_WIFI.bat")
 
+    # 6C. Create online_server.txt
+    online_server_src = ROOT / "online_server.txt"
+    if not online_server_src.exists():
+        online_server_src = BUILD_RELEASE / "online_server.txt"
+    if online_server_src.exists():
+        shutil.copy2(online_server_src, STANDALONE_DIR / "online_server.txt")
+    else:
+        (STANDALONE_DIR / "online_server.txt").write_text(
+            "# URL do Servidor Central (Lobby e Relay) do CTR Turbocharged\r\n"
+            "# Exemplo local: http://127.0.0.1:8080\r\n"
+            "# Exemplo pela Internet (Playit.gg / Ngrok / VPS): https://meu-servidor.playit.gg\r\n"
+            "http://127.0.0.1:8080\r\n",
+            encoding="utf-8"
+        )
+
+    # 6D. Create CONFIGURAR_SERVIDOR_ONLINE.bat
+    cfg_server_bat = STANDALONE_DIR / "CONFIGURAR_SERVIDOR_ONLINE.bat"
+    cfg_server_bat.write_text(
+        "@echo off\r\n"
+        "title Configurar Servidor Online - CTR Turbocharged\r\n"
+        "cd /d \"%~dp0\"\r\n"
+        "echo ========================================================\r\n"
+        "echo   CONFIGURAR SERVIDOR ONLINE (LOBBY & RELAY)\r\n"
+        "echo ========================================================\r\n"
+        "echo.\r\n"
+        "echo Digite a URL do servidor (exemplo: http://192.168.1.100:8080 ou http://playit.gg...):\r\n"
+        "set /p SERVER_URL=\"URL: \"\r\n"
+        "if not \"%SERVER_URL%\"==\"\" (\r\n"
+        "    echo %SERVER_URL%> online_server.txt\r\n"
+        "    echo [OK] Servidor configurado para: %SERVER_URL%\r\n"
+        ")\r\n"
+        "echo.\r\n"
+        "pause\r\n",
+        encoding="utf-8"
+    )
+
     # 7. Create COMO_JOGAR_ONLINE.txt
     help_txt = STANDALONE_DIR / "COMO_JOGAR_ONLINE.txt"
     help_txt.write_text(
         "========================================================================\r\n"
-        "   CRASH TEAM RACING - TURBOCHARGED (PC NATIVE MULTIPLAYER)\r\n"
+        "   CRASH TEAM RACING - TURBOCHARGED (PC ONLINE & LOCAL MULTIPLAYER)\r\n"
         "========================================================================\r\n"
         "\r\n"
         "Este pacote e 100%% PORTATIL: Nao precisa instalar nada!\r\n"
         "Funciona em qualquer Windows 64-bit / 32-bit.\r\n"
         "\r\n"
         "------------------------------------------------------------------------\r\n"
-        "1. COMO JOGAR:\r\n"
+        "1. COMO INICIAR O JOGO:\r\n"
         "------------------------------------------------------------------------\r\n"
         "Basta dar 2 cliques em \"JOGAR.bat\" ou \"Crash Team Racing - Turbocharged.exe\".\r\n"
         "\r\n"
         "------------------------------------------------------------------------\r\n"
-        "2. COMO JOGAR MULTIPLAYER (2 a 4 Jogadores):\r\n"
+        "2. MODO ONLINE (SISTEMA DE SALAS E CODIGOS - SEM VPN):\r\n"
         "------------------------------------------------------------------------\r\n"
-        "O jogo possui modo Multiplayer nativo de 2, 3 e 4 jogadores (com bots completando ate 8)!\r\n"
+        "O jogo agora possui Lobby Online com Salas Publicas e Codigos Unicos!\r\n"
         "\r\n"
-        "A) O JOGADOR QUE FOR CRIAR A SALA (HOST):\r\n"
-        "   1. Abra o jogo (\"JOGAR.bat\").\r\n"
-        "   2. No menu principal, va na opcao MULTIPLAYER e escolha CRIAR SALA.\r\n"
-        "   3. Aguarde os outros jogadores entrarem na sala (aparecera 2/4, 3/4, 4/4).\r\n"
-        "   4. Aperte o botao de iniciar (Start / X) para abrir a escolha de pista.\r\n"
-        "   * DICA: Se for a primeira vez, execute 'LIBERAR_FIREWALL.bat' para\r\n"
-        "     garantir que o Windows Defender nao bloqueie a conexao.\r\n"
-        "\r\n"
-        "B) OS JOGADORES QUE FOREM ENTRAR (CLIENTS):\r\n"
-        "   - NA MESMA CASA / MESMO WI-FI:\r\n"
-        "     O jogo possui busca automatica na rede local!\r\n"
-        "     Basta abrir o jogo (\"ENTRAR_NA_PARTIDA.bat\") e em MULTIPLAYER escolher BUSCAR SALA.\r\n"
-        "     (Se o seu roteador bloquear broadcast, abra 'VER_MEU_IP_WIFI.bat' no PC do Host,\r\n"
-        "      pegue o IP local dele ex: 192.168.x.x e coloque no 'CONFIGURAR_IP.bat' do Client).\r\n"
-        "\r\n"
-        "   - EM CASAS DIFERENTES (PELA INTERNET):\r\n"
-        "     1. De 2 cliques em \"CONFIGURAR_IP.bat\".\r\n"
-        "     2. Digite o IP do jogador Host (ex: IP do Radmin VPN 26.x.x.x ou IP publico / Playit.gg).\r\n"
-        "     3. Abra o jogo e va em MULTIPLAYER -> BUSCAR SALA.\r\n"
+        "COMO FUNCIONA:\r\n"
+        "  1. O Host inicia o servidor no PC executando \"INICIAR_SERVIDOR.bat\" dentro da pasta 'server'.\r\n"
+        "  2. Para jogar pela internet sem mexer no roteador, use o Playit.gg ou ngrok apontado para a porta 8080 (HTTP) e 31850 (UDP).\r\n"
+        "  3. No menu principal do jogo, va em MULTIPLAYER -> ONLINE:\r\n"
+        "     - CRIAR SALA: cria uma sala nova e gera um codigo de 4 letras (ex: XK82).\r\n"
+        "     - SALAS ONLINE: exibe a lista real de salas disponiveis com vagas (ex: 2/4).\r\n"
+        "     - BUSCAR POR CODIGO: digite o codigo de 4 letras para entrar diretamente!\r\n"
+        "  4. Quando os jogadores entrarem na sala, o Host clica em [INICIAR JOGO] e a corrida comeca automaticamente!\r\n"
         "\r\n"
         "------------------------------------------------------------------------\r\n"
-        "3. CONTROLES PADRAO (TECLADO):\r\n"
+        "3. MODO LOCAL (REDE WI-FI OU CABO NA MESMA CASA):\r\n"
         "------------------------------------------------------------------------\r\n"
-        "- Acelerar (X): Tecla C\r\n"
+        "100%% AUTOMATICO! Nao precisa de servidor nem de conexao com a internet!\r\n"
+        "  - Host escolhe: MULTIPLAYER -> LOCAL -> CRIAR SALA\r\n"
+        "  - Demais escolhem: MULTIPLAYER -> LOCAL -> ENTRAR NA SALA\r\n"
+        "\r\n"
+        "------------------------------------------------------------------------\r\n"
+        "4. CONTROLES PADRAO (TECLADO):\r\n"
+        "------------------------------------------------------------------------\r\n"
+        "- Acelerar (X): Tecla C ou Enter\r\n"
         "- Freio / Re (Quadrado): Tecla X\r\n"
         "- Usar Item (Circulo): Tecla V\r\n"
         "- Pular / Drift (L1/R1): Teclas Shift / Barra de Espaco\r\n"
+        "- Voltar / Cancelar (Triangulo): Tecla Esc ou Tecla D\r\n"
         "- Direcionais: Setas do Teclado\r\n"
-        "- Pause: Enter\r\n"
         "- Suporta Controles USB (PlayStation, Xbox, Genericos) nativamente via Plug and Play!\r\n"
         "========================================================================\r\n",
         encoding="utf-8"

@@ -6,6 +6,9 @@
 #include <platform/native_aspect.h>
 #include <platform/native_projection.h>
 #include <platform/native_adhoc.h>
+#include <platform/native_lobby_client.h>
+
+const char *MM_NativeAdhocGetCodeDisplayText(void);
 
 
 // Translations for the native menu rows. Language order matches the retail menus: EN, FR, DE, IT, ES, NL.
@@ -1140,6 +1143,20 @@ static char *RECTMENU_GetString(s16 stringIndex)
 		return (char *)changeBoss[languageRow];
 	case NATIVE_MENU_STRING_ADHOC:
 		return (char *)adhoc[languageRow];
+	case NATIVE_MENU_STRING_ONLINE_CREATE:
+		return (languageRow == 4) ? "CRIAR SALA" : "CREATE ROOM";
+	case NATIVE_MENU_STRING_ONLINE_BROWSER:
+		return (languageRow == 4) ? "SALAS ONLINE" : "PUBLIC ROOMS";
+	case NATIVE_MENU_STRING_ONLINE_CODE:
+		return (languageRow == 4) ? "BUSCAR POR CODIGO" : "SEARCH BY CODE";
+	case NATIVE_MENU_STRING_ONLINE_REFRESH:
+		return (languageRow == 4) ? "ATUALIZAR" : "REFRESH";
+	case NATIVE_MENU_STRING_ONLINE_JOIN:
+		return (languageRow == 4) ? "ENTRAR" : "JOIN";
+	case NATIVE_MENU_STRING_ONLINE_NO_ROOMS:
+		return (languageRow == 4) ? "NENHUMA SALA DISPONIVEL" : "NO ROOMS FOUND";
+	case NATIVE_MENU_STRING_ONLINE_CODE_DISPLAY:
+		return (char *)MM_NativeAdhocGetCodeDisplayText();
 	case NATIVE_MENU_STRING_EXIT_GAME:
 		return (char *)exitGame[languageRow];
 	case NATIVE_MENU_STRING_ONLINE_LEADERBOARD:
@@ -1155,6 +1172,31 @@ static char *RECTMENU_GetString(s16 stringIndex)
 	case NATIVE_MENU_STRING_TRACK_ALTERNATIVE:
 		return (char *)trackAlternative[languageRow];
 	default:
+#if defined(CTR_NATIVE)
+		if (((stringIndex & MENU_ROW_LNG_MASK) >= NATIVE_MENU_STRING_ONLINE_ROOM_BASE) &&
+		    ((stringIndex & MENU_ROW_LNG_MASK) < (NATIVE_MENU_STRING_ONLINE_ROOM_BASE + NATIVE_LOBBY_MAX_ROOMS)))
+		{
+			static char s_roomRowStr[64];
+			int roomIdx = (stringIndex & MENU_ROW_LNG_MASK) - NATIVE_MENU_STRING_ONLINE_ROOM_BASE;
+			const struct NativeLobbyRoomInfo *info = NativeLobby_GetRoom(roomIdx);
+			if (info != NULL)
+			{
+				const char *st = (info->currentPlayers >= info->maxPlayers) ? "CHEIA" :
+				                 (strcmp(info->status, "RACING") == 0 ? "EM JOGO" : "AGUARDANDO");
+				snprintf(s_roomRowStr, sizeof(s_roomRowStr), "%s  %d/%d  %s", info->code, info->currentPlayers, info->maxPlayers, st);
+				return s_roomRowStr;
+			}
+			return "";
+		}
+		if ((stringIndex & MENU_ROW_LNG_MASK) >= 0x400)
+		{
+			return "";
+		}
+#endif
+		if (sdata->lngStrings == NULL)
+		{
+			return "";
+		}
 		return sdata->lngStrings[stringIndex & MENU_ROW_LNG_MASK];
 	}
 }
@@ -2007,17 +2049,6 @@ void RECTMENU_CollectInput()
 		sdata->AnyPlayerTap |= sdata->buttonTapPerPlayer[i];
 		sdata->AnyPlayerHold |= sdata->buttonHeldPerPlayer[i];
 	}
-#if defined(CTR_NATIVE)
-	if (NativeAdhoc_IsActive())
-	{
-		int localIdx = NativeAdhoc_GetLocalPlayerIndex();
-		if ((localIdx >= 0) && (localIdx < numListen))
-		{
-			sdata->AnyPlayerTap = sdata->buttonTapPerPlayer[localIdx];
-			sdata->AnyPlayerHold = sdata->buttonHeldPerPlayer[localIdx];
-		}
-	}
-#endif
 }
 
 
@@ -2053,28 +2084,8 @@ int RECTMENU_ProcessInput(struct RectMenu *m)
 	// if only P1 can use menu
 	if ((m->state & ALL_PLAYERS_USE_MENU) == 0)
 	{
-#if defined(CTR_NATIVE)
-		if (NativeAdhoc_IsActive())
-		{
-			int localIdx = NativeAdhoc_GetLocalPlayerIndex();
-			if ((localIdx >= 0) && (localIdx < 4))
-			{
-				button = sdata->buttonTapPerPlayer[localIdx];
-			}
-			else
-			{
-				button = sdata->buttonTapPerPlayer[0];
-			}
-		}
-		else
-		{
-			// get button from P1
-			button = sdata->buttonTapPerPlayer[0];
-		}
-#else
-		// get button from P1
+		// get button from P1 (local controller at this machine)
 		button = sdata->buttonTapPerPlayer[0];
-#endif
 	}
 
 	if (

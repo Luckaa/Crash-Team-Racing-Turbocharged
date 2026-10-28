@@ -182,41 +182,96 @@ static void VehStuckProc_MaskGrab_SearchBsp(struct Driver *d, struct ScratchpadS
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006677c-0x80066cb0.
 void VehStuckProc_MaskGrab_FindDestPos(struct Driver *d, struct QuadBlock *quad)
 {
+	if (d == NULL || sdata == NULL || sdata->gGT == NULL)
+	{
+		return;
+	}
+
 	struct GameTracker *gGT = sdata->gGT;
 	struct Level *level = gGT->level1;
+	if (level == NULL)
+	{
+		return;
+	}
+
 	struct mesh_info *mesh = level->ptr_mesh_info;
 
-	if ((level->cnt_restart_points < 1) || (level->ptr_restart_points == NULL) || (quad->checkpointIndex == 0xff))
+	// Fallback to startline spawn if quad is NULL or level has no valid restart points
+	if ((quad == NULL) || (mesh == NULL) || (level->cnt_restart_points < 1) || (level->ptr_restart_points == NULL))
 	{
-		struct LevVertex *verts = mesh->ptrVertexArray;
-		struct LevVertex *v0 = &verts[quad->index[0]];
-		struct LevVertex *v3 = &verts[quad->index[3]];
+		if (level->DriverSpawn != NULL)
+		{
+			u8 spawnIndex = VehBirth_GetStartlineIndex(d);
+			d->posCurr.x = CTR_MipsSll(level->DriverSpawn[spawnIndex].pos.x, 8);
+			d->posCurr.y = CTR_MipsSll(CTR_MipsAddLo(level->DriverSpawn[spawnIndex].pos.y, VEH_STUCK_RESPAWN_Y_OFFSET), 8);
+			d->posCurr.z = CTR_MipsSll(level->DriverSpawn[spawnIndex].pos.z, 8);
+			d->rotCurr.x = level->DriverSpawn[spawnIndex].rot.x;
+			d->rotCurr.y = ANG_MODULO_TWO_PI(level->DriverSpawn[spawnIndex].rot.y + ANG_HALF_PI);
+			d->rotCurr.z = level->DriverSpawn[spawnIndex].rot.z;
+		}
+		if (d->driverID < 4)
+		{
+			gGT->cameraDC[d->driverID].flags |= 1;
+		}
+		return;
+	}
 
-		d->posCurr.x = CTR_MipsSll(CTR_MipsAddLo(v0->pos.x, v3->pos.x), 7);
-		d->posCurr.y = CTR_MipsSll(CTR_MipsAddLo(CTR_MipsAddLo(v0->pos.y, v3->pos.y), VEH_STUCK_RESPAWN_Y_OFFSET), 7);
-		d->posCurr.z = CTR_MipsSll(CTR_MipsAddLo(v0->pos.z, v3->pos.z), 7);
+	int startCpIndex = 0;
+	if (quad != NULL && quad->checkpointIndex != 0xff && quad->checkpointIndex < level->cnt_restart_points)
+	{
+		startCpIndex = quad->checkpointIndex;
 	}
 	else
 	{
+		// Water or off-track quad: find the closest valid track checkpoint to avoid respawning in water/void
+		s32 bestDistSq = 0x7fffffff;
+		s32 currX = d->posCurr.x >> 8;
+		s32 currZ = d->posCurr.z >> 8;
+		for (int i = 0; i < level->cnt_restart_points; i++)
+		{
+			s32 dx = (s32)level->ptr_restart_points[i].pos.x - currX;
+			s32 dz = (s32)level->ptr_restart_points[i].pos.z - currZ;
+			s32 distSq = (dx * dx) + (dz * dz);
+			if (distSq < bestDistSq)
+			{
+				bestDistSq = distSq;
+				startCpIndex = i;
+			}
+		}
+	}
+
+	{
 		struct ScratchpadStruct *sps = CTR_SCRATCHPAD_PTR(struct ScratchpadStruct, 0x108);
-		struct Thread *driverThread = d->instSelf->thread;
-		struct CheckpointNode *respawn = &level->ptr_restart_points[quad->checkpointIndex];
+		struct Thread *driverThread = (d->instSelf != NULL) ? d->instSelf->thread : NULL;
+		struct CheckpointNode *respawn = &level->ptr_restart_points[startCpIndex];
 		struct CheckpointNode *nextRespawn;
 
-		sps->Input1.hitRadius = driverThread->driverHitRadius;
-		sps->Input1.hitRadiusSquared = driverThread->driverHitRadiusSquared;
-		sps->Union.QuadBlockColl.hitRadius = driverThread->driverHitRadius;
-		sps->Union.QuadBlockColl.hitRadiusSquared = driverThread->driverHitRadiusSquared;
+		if (driverThread != NULL)
+		{
+			sps->Input1.hitRadius = driverThread->driverHitRadius;
+			sps->Input1.hitRadiusSquared = driverThread->driverHitRadiusSquared;
+			sps->Union.QuadBlockColl.hitRadius = driverThread->driverHitRadius;
+			sps->Union.QuadBlockColl.hitRadiusSquared = driverThread->driverHitRadiusSquared;
+		}
 		sps->ptr_mesh_info = mesh;
 		sps->Union.QuadBlockColl.quadFlagsIgnored = QUADBLOCK_FLAG_NO_CAMERA_RESPAWN_PROBE | QUADBLOCK_FLAG_NO_COLLISION_RESPONSE;
 		sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND;
 		d->distanceDrivenBackwards = 0;
 
+		int maxOuterLoops = 32;
 		do
 		{
+			int maxInnerLoops = (level->cnt_restart_points > 0 && level->cnt_restart_points < 100) ? level->cnt_restart_points : 64;
 			do
 			{
-				nextRespawn = &level->ptr_restart_points[respawn->nextIndex_forward];
+				if (respawn->nextIndex_forward >= level->cnt_restart_points)
+				{
+					nextRespawn = &level->ptr_restart_points[0];
+				}
+				else
+				{
+					nextRespawn = &level->ptr_restart_points[respawn->nextIndex_forward];
+				}
 
 				d->posCurr.x = CTR_MipsSll(respawn->pos.x, FRACTIONAL_BITS_8);
 				d->posCurr.y = CTR_MipsSll(CTR_MipsAddLo(respawn->pos.y, VEH_STUCK_RESPAWN_Y_OFFSET), FRACTIONAL_BITS_8);
@@ -228,6 +283,11 @@ void VehStuckProc_MaskGrab_FindDestPos(struct Driver *d, struct QuadBlock *quad)
 
 				VehStuckProc_MaskGrab_SearchBsp(d, sps);
 				respawn = nextRespawn;
+
+				if (--maxInnerLoops <= 0)
+				{
+					break;
+				}
 			} while ((sps->boolDidTouchQuadblock == 0) || ((sps->collision.stepFlags & COLL_STEP_FLAG_KILL_PLANE) != 0));
 
 			struct Thread *playerThread = gGT->threadBuckets[PLAYER].thread;
@@ -235,7 +295,7 @@ void VehStuckProc_MaskGrab_FindDestPos(struct Driver *d, struct QuadBlock *quad)
 			{
 				struct Driver *other = playerThread->object;
 
-				if (other != d)
+				if (other != NULL && other != d)
 				{
 					int diffX = CTR_MipsSubLo(d->posCurr.x, other->posCurr.x);
 					int diffZ = CTR_MipsSubLo(d->posCurr.z, other->posCurr.z);
@@ -264,20 +324,28 @@ void VehStuckProc_MaskGrab_FindDestPos(struct Driver *d, struct QuadBlock *quad)
 				playerThread = playerThread->siblingThread;
 			}
 
-			if (playerThread == NULL)
+			if (playerThread == NULL || --maxOuterLoops <= 0)
 			{
 				break;
 			}
 		} while (1);
 	}
 
-	gGT->cameraDC[d->driverID].flags |= 1;
+	if (d->driverID < 4)
+	{
+		gGT->cameraDC[d->driverID].flags |= 1;
+	}
 }
 
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80066cb0-0x80066d4c.
 void VehStuckProc_MaskGrab_Particles(struct Driver *d)
 {
+	if (d == NULL || sdata == NULL || sdata->gGT == NULL || sdata->gGT->iconGroup[0] == NULL)
+	{
+		return;
+	}
+
 	struct Particle *p;
 
 	for (int i = 10; i > 0; i--)
@@ -331,7 +399,10 @@ void VehStuckProc_MaskGrab_Update(struct Thread *t, struct Driver *d)
 
 
 	// CameraDC flag
-	gGT->cameraDC[d->driverID].flags |= CAMERA_FLAG_DIRECTION_CHANGED;
+	if (d->driverID < 4)
+	{
+		gGT->cameraDC[d->driverID].flags |= CAMERA_FLAG_DIRECTION_CHANGED;
+	}
 
 
 	VehStuckProc_MaskGrab_FindDestPos(d, d->lastValid);
@@ -568,6 +639,11 @@ extern DriverFunc PlayerMaskGrabFuncTable[DRIVER_FUNC_COUNT];
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800671b0-0x8006749c.
 void VehStuckProc_MaskGrab_Init(struct Thread *t, struct Driver *d)
 {
+	if (d == NULL || t == NULL || t->inst == NULL || sdata == NULL || sdata->gGT == NULL)
+	{
+		return;
+	}
+
 	struct GameTracker *gGT = sdata->gGT;
 	struct Instance *inst = t->inst;
 
@@ -602,7 +678,7 @@ void VehStuckProc_MaskGrab_Init(struct Thread *t, struct Driver *d)
 	{
 		d->numTimesMaskGrab++;
 
-		if ((d->posCurr.y < -VEH_STUCK_MASK_GRAB_FALL_HEIGHT_THRESHOLD) && ((gGT->level1->configFlags & 2) != 0))
+		if ((d->posCurr.y < -VEH_STUCK_MASK_GRAB_FALL_HEIGHT_THRESHOLD) && (gGT->level1 != NULL) && ((gGT->level1->configFlags & 2) != 0))
 		{
 			d->KartStates.MaskGrab.AngleAxis_NormalVec = d->AxisAngle2_normalVec;
 
@@ -770,23 +846,26 @@ void VehStuckProc_PlantEaten_Animate(struct Thread *t, struct Driver *d)
 
 		RotTrans(&plantVector, &camVec, gteFlags);
 
-		struct PushBuffer *pb = &gGT->pushBuffer[d->driverID];
+		if (d->driverID < 4)
+		{
+			struct PushBuffer *pb = &gGT->pushBuffer[d->driverID];
 
-		pb->pos.x = camVec.vx;
-		pb->pos.y = CTR_MipsAddLo(inst->matrix.t[1], VEH_STUCK_PLANT_CAMERA_Y_OFFSET);
-		pb->pos.z = camVec.vz;
+			pb->pos.x = camVec.vx;
+			pb->pos.y = CTR_MipsAddLo(inst->matrix.t[1], VEH_STUCK_PLANT_CAMERA_Y_OFFSET);
+			pb->pos.z = camVec.vz;
 
-		int camX = CTR_MipsSubLo(camVec.vx, inst->matrix.t[0]);
-		int camZ = CTR_MipsSubLo(camVec.vz, inst->matrix.t[2]);
+			int camX = CTR_MipsSubLo(camVec.vx, inst->matrix.t[0]);
+			int camZ = CTR_MipsSubLo(camVec.vz, inst->matrix.t[2]);
 
-		pb->rot.y = (s16)ratan2(camX, camZ);
+			pb->rot.y = (s16)ratan2(camX, camZ);
 
-		// get distance between car and camera
-		dist = SquareRoot0_stub(CTR_MipsAddLo(CTR_MipsMulLo(camX, camX), CTR_MipsMulLo(camZ, camZ)));
+			// get distance between car and camera
+			dist = SquareRoot0_stub(CTR_MipsAddLo(CTR_MipsMulLo(camX, camX), CTR_MipsMulLo(camZ, camZ)));
 
-		pb->rot.x = CTR_MipsSubLo(VEH_STUCK_PLANT_CAMERA_PITCH_BASE, ratan2(CTR_MipsSubLo(pb->pos.y, inst->matrix.t[1]), dist));
+			pb->rot.x = CTR_MipsSubLo(VEH_STUCK_PLANT_CAMERA_PITCH_BASE, ratan2(CTR_MipsSubLo(pb->pos.y, inst->matrix.t[1]), dist));
 
-		pb->rot.z = 0;
+			pb->rot.z = 0;
+		}
 	}
 }
 
@@ -981,9 +1060,12 @@ void VehStuckProc_RevEngine_PhysLinear(struct Thread *t, struct Driver *d)
 		d->KartStates.RevEngine.maskObj->duration = MASK_HEAD_DURATION_NORMAL;
 	}
 
-	struct CameraDC *cDC = &gGT->cameraDC[d->driverID];
-	cDC->flags |= CAMERA_FLAG_MASK_GRAB;
-	cDC->maskGrabHeightOffset = VEH_STUCK_REV_CAMERA_HEIGHT_OFFSET;
+	if (d->driverID < 4)
+	{
+		struct CameraDC *cDC = &gGT->cameraDC[d->driverID];
+		cDC->flags |= CAMERA_FLAG_MASK_GRAB;
+		cDC->maskGrabHeightOffset = VEH_STUCK_REV_CAMERA_HEIGHT_OFFSET;
+	}
 }
 
 
@@ -1234,7 +1316,10 @@ void VehStuckProc_RevEngine_Init(struct Thread *t, struct Driver *d)
 		d->actionsFlagSet &= ~ACTION_TOUCH_GROUND;
 
 		// CameraDC flag
-		sdata->gGT->cameraDC[d->driverID].flags |= CAMERA_FLAG_DIRECTION_CHANGED;
+		if (d->driverID < 4)
+		{
+			sdata->gGT->cameraDC[d->driverID].flags |= CAMERA_FLAG_DIRECTION_CHANGED;
+		}
 	}
 
 	for (s32 i = 0; i < DRIVER_FUNC_COUNT; i++)
@@ -1368,6 +1453,11 @@ DriverFunc PlayerBlastedFuncTable[DRIVER_FUNC_COUNT] = {NULL,
 void VehStuckProc_Tumble_Init(struct Thread *thread, struct Driver *driver)
 {
 	(void)thread;
+	if (driver == NULL || driver->instSelf == NULL)
+	{
+		return;
+	}
+
 	driver->kartState = KS_BLASTED;
 	driver->turbo_MeterRoomLeft = 0;
 
@@ -1744,6 +1834,11 @@ static void VehWarpDust_EmitSegment(u32 **primCursor, struct PushBuffer *pb, con
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80068644-0x80068be8.
 void VehStuckProc_Warp_AddDustPuff2(struct Driver *d, struct DriverWarpState *warp)
 {
+	if (d == NULL || d->driverID >= 4 || sdata == NULL || sdata->gGT == NULL)
+	{
+		return;
+	}
+
 	struct GameTracker *gGT = sdata->gGT;
 	struct PushBuffer *pb = &gGT->pushBuffer[d->driverID];
 	struct DB *backBuffer = gGT->backBuffer;
@@ -1964,7 +2059,10 @@ void VehStuckProc_Warp_Init(struct Thread *th, struct Driver *d)
 	EngineAudio_Stop((engine * VEH_WARP_ENGINE_AUDIO_STRIDE) + playerID);
 
 	// CameraDC, freecam mode
-	sdata->gGT->cameraDC[playerID].cameraMode = CAMERA_MODE_FREECAM;
+	if (playerID < 4)
+	{
+		sdata->gGT->cameraDC[playerID].cameraMode = CAMERA_MODE_FREECAM;
+	}
 
 	// driver -> instSelf
 	struct Instance *inst = d->instSelf;

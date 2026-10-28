@@ -210,7 +210,8 @@ void RB_GenericMine_ThTick(struct Thread *t)
 		}
 
 		// spin driver
-		coll = (struct Instance *)RB_Hazard_HurtDriver(d, 1, mw->instParent->thread->object, param);
+		struct Driver *attacker = VehPickupItem_FindDriverByInstance(mw != NULL ? mw->instParent : NULL);
+		coll = (struct Instance *)RB_Hazard_HurtDriver(d, 1, attacker, param);
 
 		// if collision, and if this was a red potion
 		if ((coll != 0) && (mw->flags & MINE_WEAPON_FLAG_RED_BEAKER) != 0)
@@ -219,7 +220,7 @@ void RB_GenericMine_ThTick(struct Thread *t)
 		}
 
 		// if this driver is not an AI
-		if ((d->actionsFlagSet & ACTION_BOT) == 0)
+		if (((d->actionsFlagSet & ACTION_BOT) == 0) && (d->driverID < 4))
 		{
 			// current fade value (bright white)
 			gGT->pushBuffer[d->driverID].fadeFromBlack_currentValue = 0x1fff;
@@ -292,7 +293,8 @@ void RB_GenericMine_ThTick(struct Thread *t)
 		// if model is Nitro
 		if (model == PU_EXPLOSIVE_CRATE)
 		{
-			RB_Hazard_HurtDriver(d, 2, mw->instParent->thread->object, 2);
+			struct Driver *attacker = VehPickupItem_FindDriverByInstance(mw != NULL ? mw->instParent : NULL);
+			RB_Hazard_HurtDriver(d, 2, attacker, 2);
 
 			// icon damage timer, draw icon as green
 			d->damageColorTimer = -0x1e;
@@ -303,8 +305,9 @@ void RB_GenericMine_ThTick(struct Thread *t)
 		// if model is TNT
 		if (model == STATIC_CRATE_TNT)
 		{
+			struct Driver *attacker = VehPickupItem_FindDriverByInstance(mw != NULL ? mw->instParent : NULL);
 			// damageType 0 keeps driving unless the shield/mask path absorbs TNT.
-			crate = (struct Crate *)RB_Hazard_HurtDriver(d, 0, mw->instParent->thread->object, 2);
+			crate = (struct Crate *)RB_Hazard_HurtDriver(d, 0, attacker, 2);
 
 			if (crate == 0)
 			{
@@ -350,6 +353,10 @@ void RB_GenericMine_ThTick(struct Thread *t)
 			{
 				// create thread for TNT, get an Instance
 				instCrate = INSTANCE_BirthWithThread(STATIC_CRATE_TNT, sdata->s_tnt1, SMALL, MINE, RB_GenericMine_ThTick, sizeof(struct MineWeapon), 0);
+				if (instCrate == NULL || instCrate->thread == NULL)
+				{
+					return;
+				}
 
 				instCrate->matrix = inst->matrix;
 

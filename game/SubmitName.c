@@ -4,6 +4,7 @@ enum
 {
 	SUBMIT_NAME_MODE_ADVENTURE = 0,
 	SUBMIT_NAME_MODE_TIME_TRIAL = 1,
+	SUBMIT_NAME_MODE_ONLINE_CODE = 2,
 
 	SUBMIT_NAME_BUFFER_SIZE = 0x11,
 	SUBMIT_NAME_MAX_VISIBLE_CHARS = 8,
@@ -160,7 +161,14 @@ s16 SubmitName_DrawMenu(u16 string)
 		}
 	}
 
-	DecalFont_DrawLine(sdata->lngStrings[LNG_PLEASE_ENTER_YOUR_NAME], SUBMIT_NAME_TITLE_X, SUBMIT_NAME_TITLE_Y, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+	if (sdata->selectProfileState.submitNameMode == SUBMIT_NAME_MODE_ONLINE_CODE)
+	{
+		DecalFont_DrawLine("CODIGO DA SALA", SUBMIT_NAME_TITLE_X, SUBMIT_NAME_TITLE_Y, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+	}
+	else
+	{
+		DecalFont_DrawLine(sdata->lngStrings[LNG_PLEASE_ENTER_YOUR_NAME], SUBMIT_NAME_TITLE_X, SUBMIT_NAME_TITLE_Y, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+	}
 
 	// player name
 	DecalFont_DrawLine(gGT->currNameEntered, SUBMIT_NAME_TYPED_NAME_X, SUBMIT_NAME_TYPED_NAME_Y, FONT_BIG, WHITE);
@@ -182,7 +190,14 @@ s16 SubmitName_DrawMenu(u16 string)
 	}
 
 	// SAVE button draw
-	DecalFont_DrawLine(sdata->lngStrings[stringCopy], SUBMIT_NAME_ACTION_X, SUBMIT_NAME_ACTION_Y, FONT_BIG, (JUSTIFY_RIGHT | strColorBlink));
+	if (sdata->selectProfileState.submitNameMode == SUBMIT_NAME_MODE_ONLINE_CODE)
+	{
+		DecalFont_DrawLine("ENTRAR", SUBMIT_NAME_ACTION_X, SUBMIT_NAME_ACTION_Y, FONT_BIG, (JUSTIFY_RIGHT | strColorBlink));
+	}
+	else
+	{
+		DecalFont_DrawLine(sdata->lngStrings[stringCopy], SUBMIT_NAME_ACTION_X, SUBMIT_NAME_ACTION_Y, FONT_BIG, (JUSTIFY_RIGHT | strColorBlink));
+	}
 
 	// CANCEL button blink
 	strColorBlink = 0;
@@ -319,7 +334,8 @@ s16 SubmitName_DrawMenu(u16 string)
 						// too many letters
 						soundID = 5;
 
-						if (nameLength < SUBMIT_NAME_MAX_VISIBLE_CHARS)
+						int maxChars = (sdata->selectProfileState.submitNameMode == SUBMIT_NAME_MODE_ONLINE_CODE) ? 4 : SUBMIT_NAME_MAX_VISIBLE_CHARS;
+						if (nameLength < maxChars)
 						{
 							soundID = 1;
 
@@ -331,6 +347,11 @@ s16 SubmitName_DrawMenu(u16 string)
 							}
 
 							gGT->currNameEntered[currNameLengthIncrement] = cursorCharacter;
+
+							if ((sdata->selectProfileState.submitNameMode == SUBMIT_NAME_MODE_ONLINE_CODE) && ((nameLength + 1) >= 4))
+							{
+								cursorPosition = SUBMIT_NAME_CURSOR_SAVE;
+							}
 						}
 					}
 
@@ -503,6 +524,46 @@ void SubmitName_MenuProc(struct RectMenu *menu)
 			// AdventureMode
 			SelectProfile_ToggleMode(SELECT_PROFILE_MODE_ADV_SAVE);
 			sdata->ptrDesiredMenu = &data.menuFourAdvProfiles;
+		}
+	}
+
+	// if code entered for Online Room Search
+	else if (sdata->selectProfileState.submitNameMode == SUBMIT_NAME_MODE_ONLINE_CODE)
+	{
+		extern void MM_NativeAdhocReturnToRole(void);
+		extern void MM_NativeAdhocOnlineOpenWaitAsClient(void);
+		extern int NativeLobby_JoinRoom(const char *code, const char *playerName);
+
+		// if hit CANCEL
+		if (selection < 0)
+		{
+			MM_NativeAdhocReturnToRole();
+		}
+		// if hit SAVE / ENTRAR
+		else
+		{
+			char code[8] = {0};
+			int cIdx = 0;
+			for (int i = 0; i < SUBMIT_NAME_BUFFER_SIZE && cIdx < 4; i++)
+			{
+				char c = gGT->currNameEntered[i];
+				if (c == 0) break;
+				if (isalnum((unsigned char)c))
+				{
+					code[cIdx++] = (char)toupper((unsigned char)c);
+				}
+			}
+			code[cIdx] = '\0';
+
+			if (cIdx == 4)
+			{
+				NativeLobby_JoinRoom(code, "Player");
+				MM_NativeAdhocOnlineOpenWaitAsClient();
+			}
+			else
+			{
+				OtherFX_Play(5, 1);
+			}
 		}
 	}
 }

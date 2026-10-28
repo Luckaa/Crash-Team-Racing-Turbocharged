@@ -14,8 +14,11 @@ void RB_MaskWeapon_FadeAway(struct Thread *t)
 	struct Instance *maskBeamInst;
 	struct MaskHeadWeapon *mask;
 
+	if (t == NULL || t->inst == NULL) return;
 	inst = t->inst;
+	if (inst->thread == NULL || inst->thread->object == NULL) return;
 	mask = inst->thread->object;
+	if (t->parentThread == NULL || t->parentThread->inst == NULL) return;
 	driverInst = t->parentThread->inst;
 	maskBeamInst = mask->maskBeamInst;
 
@@ -34,14 +37,18 @@ void RB_MaskWeapon_FadeAway(struct Thread *t)
 	instCurr = inst;
 
 	// First time is MaskInst,
-	// Second time is BeamInst
-	for (int i = 0; i < 2; i++)
+	// Second time is BeamInst (if present)
+	int passCount = (maskBeamInst != NULL) ? 2 : 1;
+	for (int i = 0; i < passCount; i++)
 	{
-		LHMatrix_Parent(instCurr, driverInst, &mhs->posOffset);
+		if (instCurr != NULL)
+		{
+			LHMatrix_Parent(instCurr, driverInst, &mhs->posOffset);
 
-		instCurr->scale.x += CTR_FRAME_STEP(-0x100, sdata->gGT->timer);
-		instCurr->scale.y += CTR_FRAME_STEP(-0x100, sdata->gGT->timer);
-		instCurr->scale.z += CTR_FRAME_STEP(-0x100, sdata->gGT->timer);
+			instCurr->scale.x += CTR_FRAME_STEP(-0x100, sdata->gGT->timer);
+			instCurr->scale.y += CTR_FRAME_STEP(-0x100, sdata->gGT->timer);
+			instCurr->scale.z += CTR_FRAME_STEP(-0x100, sdata->gGT->timer);
+		}
 
 		// position offset
 		mhs->posOffset.x = 0;
@@ -55,12 +62,15 @@ void RB_MaskWeapon_FadeAway(struct Thread *t)
 	mhs->rot.z = 0;
 	ConvertRotToMatrix(&mhs->m, &mhs->rot);
 
-	m = &maskBeamInst->matrix;
-	MatrixRotate(m, m, &mhs->m);
-
-	if (maskBeamInst->alphaScale < 0x1000)
+	if (maskBeamInst != NULL)
 	{
-		maskBeamInst->alphaScale += CTR_FRAME_STEP(0x200, sdata->gGT->timer);
+		m = &maskBeamInst->matrix;
+		MatrixRotate(m, m, &mhs->m);
+
+		if (maskBeamInst->alphaScale < 0x1000)
+		{
+			maskBeamInst->alphaScale += CTR_FRAME_STEP(0x200, sdata->gGT->timer);
+		}
 	}
 
 	totalTime = mask->duration;
@@ -79,7 +89,11 @@ void RB_MaskWeapon_FadeAway(struct Thread *t)
 	}
 
 	// mask is now dead
-	INSTANCE_Death(maskBeamInst);
+	if (maskBeamInst != NULL)
+	{
+		INSTANCE_Death(maskBeamInst);
+		mask->maskBeamInst = NULL;
+	}
 	t->flags |= THREAD_FLAG_DEAD;
 	return;
 }
@@ -101,6 +115,9 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 
 	struct Instance *instCurr;
 
+	if (maskTh == NULL || maskTh->object == NULL || maskTh->inst == NULL) return;
+	if (maskTh->parentThread == NULL || maskTh->parentThread->object == NULL || maskTh->parentThread->inst == NULL) return;
+
 	gGT = sdata->gGT;
 	numPlyr = gGT->numPlyrCurrGame;
 
@@ -112,21 +129,24 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 	driverInst = maskTh->parentThread->inst;
 
 	struct InstDrawPerPlayer *maskIdpp = INST_GETIDPP(maskInst);
-	struct InstDrawPerPlayer *beamIdpp = INST_GETIDPP(maskBeamInst);
+	struct InstDrawPerPlayer *beamIdpp = (maskBeamInst != NULL) ? INST_GETIDPP(maskBeamInst) : NULL;
 
 	if (d->invisibleTimer == 0)
 	{
-		for (int i = 0; i < numPlyr; i++)
+		for (int i = 0; i < numPlyr && i < 4; i++)
 		{
 			pb = &gGT->pushBuffer[i];
 			maskIdpp[i].pushBuffer = pb;
-			beamIdpp[i].pushBuffer = pb;
+			if (beamIdpp != NULL)
+			{
+				beamIdpp[i].pushBuffer = pb;
+			}
 		}
 	}
 
 	else
 	{
-		for (int i = 0; i < numPlyr; i++)
+		for (int i = 0; i < numPlyr && i < 4; i++)
 		{
 			if (i == d->driverID)
 			{
@@ -134,7 +154,10 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 			}
 
 			maskIdpp[i].pushBuffer = NULL;
-			beamIdpp[i].pushBuffer = NULL;
+			if (beamIdpp != NULL)
+			{
+				beamIdpp[i].pushBuffer = NULL;
+			}
 		}
 	}
 
@@ -147,8 +170,11 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 		maskInst->flags |= REFLECTIVE;
 
 		maskInst->vertSplit = driverInst->vertSplit;
-		maskBeamInst->flags |= REFLECTIVE;
-		maskBeamInst->vertSplit = driverInst->vertSplit;
+		if (maskBeamInst != NULL)
+		{
+			maskBeamInst->flags |= REFLECTIVE;
+			maskBeamInst->vertSplit = driverInst->vertSplit;
+		}
 	}
 
 	maskInst->depthBiasNormal = driverInst->depthBiasNormal;
@@ -163,7 +189,8 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 	mhs->posOffset.x = (((MATH_Sin(rot) << 6) >> 0xc) * mask->scale) >> 0xc;
 	mhs->posOffset.z = (((MATH_Cos(rot) << 6) >> 0xc) * mask->scale) >> 0xc;
 
-	mhs->posOffset.y = R231.maskPosArr[FPS_HALF((int)maskBeamInst->animFrame)] + 0x40;
+	s16 animF = (maskBeamInst != NULL) ? (s16)maskBeamInst->animFrame : (s16)maskInst->animFrame;
+	mhs->posOffset.y = R231.maskPosArr[FPS_HALF((int)animF)] + 0x40;
 
 	mhs->rot.x = 0;
 	mhs->rot.y = rot;
@@ -172,21 +199,25 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 	instCurr = maskInst;
 
 	// First time is MaskInst,
-	// Second time is BeamInst
-	for (int i = 0; i < 2; i++)
+	// Second time is BeamInst (if present)
+	int passCount = (maskBeamInst != NULL) ? 2 : 1;
+	for (int i = 0; i < passCount; i++)
 	{
-		if ((mask->rot.z & MASK_HEAD_ROT_WORLD_SPACE) == 0)
+		if (instCurr != NULL)
 		{
-			LHMatrix_Parent(instCurr, driverInst, &mhs->posOffset);
-			ConvertRotToMatrix(&mhs->m, &mhs->rot);
-			MatrixRotate(&instCurr->matrix, &instCurr->matrix, &mhs->m);
-		}
-		else
-		{
-			instCurr->matrix.t[0] = (int)mask->pos.x + mhs->posOffset.x;
-			instCurr->matrix.t[1] = (int)mask->pos.y + mhs->posOffset.y;
-			instCurr->matrix.t[2] = (int)mask->pos.z + mhs->posOffset.z;
-			ConvertRotToMatrix(&instCurr->matrix, &mhs->rot);
+			if ((mask->rot.z & MASK_HEAD_ROT_WORLD_SPACE) == 0)
+			{
+				LHMatrix_Parent(instCurr, driverInst, &mhs->posOffset);
+				ConvertRotToMatrix(&mhs->m, &mhs->rot);
+				MatrixRotate(&instCurr->matrix, &instCurr->matrix, &mhs->m);
+			}
+			else
+			{
+				instCurr->matrix.t[0] = (int)mask->pos.x + mhs->posOffset.x;
+				instCurr->matrix.t[1] = (int)mask->pos.y + mhs->posOffset.y;
+				instCurr->matrix.t[2] = (int)mask->pos.z + mhs->posOffset.z;
+				ConvertRotToMatrix(&instCurr->matrix, &mhs->rot);
+			}
 		}
 
 		// Set up the Second pass (BeamInst)
@@ -200,20 +231,23 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 
 	// === Animation ===
 
-	// get animFrame
-	numAnimFrames = INSTANCE_GetNumAnimFrames(maskBeamInst, 0);
+	if (maskBeamInst != NULL)
+	{
+		// get animFrame
+		numAnimFrames = INSTANCE_GetNumAnimFrames(maskBeamInst, 0);
 
-	// if animation is not finished
-	if ((int)maskBeamInst->animFrame < numAnimFrames - 1)
-	{
-		// increment animation frame
-		maskBeamInst->animFrame += 1;
-	}
-	// if animation is finished
-	else
-	{
-		// restart animation
-		maskBeamInst->animFrame = 0;
+		// if animation is not finished
+		if ((int)maskBeamInst->animFrame < numAnimFrames - 1)
+		{
+			// increment animation frame
+			maskBeamInst->animFrame += 1;
+		}
+		// if animation is finished
+		else
+		{
+			// restart animation
+			maskBeamInst->animFrame = 0;
+		}
 	}
 
 	// adjust rotation
@@ -235,21 +269,20 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 		}
 	}
 
-	// first pass
-	instCurr = maskBeamInst;
-	instCurr->alphaScale = 0;
-
-	for (int i = 0; i < 2; i++)
+	// Scale & unhide passes
+	if (maskBeamInst != NULL)
 	{
-		instCurr->flags &= ~HIDE_MODEL;
-
-		instCurr->scale.x = mask->scale;
-		instCurr->scale.y = mask->scale;
-		instCurr->scale.z = mask->scale;
-
-		// second pass
-		instCurr = maskInst;
+		maskBeamInst->alphaScale = 0;
+		maskBeamInst->flags &= ~HIDE_MODEL;
+		maskBeamInst->scale.x = mask->scale;
+		maskBeamInst->scale.y = mask->scale;
+		maskBeamInst->scale.z = mask->scale;
 	}
+
+	maskInst->flags &= ~HIDE_MODEL;
+	maskInst->scale.x = mask->scale;
+	maskInst->scale.y = mask->scale;
+	maskInst->scale.z = mask->scale;
 }
 
 static const s16 s_shieldPopScale[11][2] = {
@@ -266,10 +299,21 @@ void RB_ShieldDark_ThTick_Pop(struct Thread *t)
 	struct Driver *driverOwner;
 	SVec3 rot;
 
+	if (t == NULL || t->object == NULL || t->inst == NULL || t->parentThread == NULL || t->parentThread->object == NULL)
+	{
+		return;
+	}
+
 	sh = t->object;
 	instDark = t->inst;
 	instColor = sh->instColor;
 	driverOwner = t->parentThread->object;
+
+	if (driverOwner->instSelf == NULL || instColor == NULL)
+	{
+		t->flags |= THREAD_FLAG_DEAD;
+		return;
+	}
 
 	rot.x = 0;
 	rot.y = 0;
@@ -348,11 +392,21 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 	struct TrackerWeapon *tw;
 	struct PushBuffer *pb;
 
+	if (th == NULL || th->inst == NULL || th->object == NULL || th->parentThread == NULL || th->parentThread->object == NULL || th->parentThread->inst == NULL || sdata == NULL || sdata->gGT == NULL)
+	{
+		return;
+	}
+
 	struct GameTracker *gGT = sdata->gGT;
 	struct Instance *shieldInst = th->inst;
 	struct Shield *shield = th->object;
 	struct Instance *colorInst = shield->instColor;
 	struct Instance *highlightInst = shield->instHighlight;
+
+	if (colorInst == NULL || highlightInst == NULL)
+	{
+		return;
+	}
 
 	struct Thread *playerTh = th->parentThread;
 	struct Driver *player = playerTh->object;
@@ -407,7 +461,7 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 	// If the driver that used this weapon is visible
 	if (player->invisibleTimer == 0)
 	{
-		for (i = 0; i < gGT->numPlyrCurrGame; i++)
+		for (i = 0; i < gGT->numPlyrCurrGame && i < 4; i++)
 		{
 			pb = &gGT->pushBuffer[i];
 			idpp[i].pushBuffer = pb;
@@ -419,7 +473,7 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 	// if driver is not invisible
 	else
 	{
-		for (i = 0; i < gGT->numPlyrCurrGame; i++)
+		for (i = 0; i < gGT->numPlyrCurrGame && i < 4; i++)
 		{
 			if (i == player->driverID)
 			{
@@ -551,11 +605,14 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 	{
 		if ((shieldFlags & SHIELD_FLAG_CRASH_ATTACK) != 0)
 		{
-			pb = &gGT->pushBuffer[player->driverID];
+			if (player->driverID < 4)
+			{
+				pb = &gGT->pushBuffer[player->driverID];
 
-			pb->fadeFromBlack_currentValue = 0x1fff;
-			pb->fadeFromBlack_desiredResult = 0x1000;
-			pb->fade_step = -(0x88);
+				pb->fadeFromBlack_currentValue = 0x1fff;
+				pb->fadeFromBlack_desiredResult = 0x1000;
+				pb->fade_step = -(0x88);
+			}
 		}
 
 		shield->animFrame = 0;
@@ -588,6 +645,10 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 
 	// create a thread, get an instance
 	struct Instance *bombInst = INSTANCE_BirthWithThread(model, 0, MEDIUM, OTHER, RB_MovingExplosive_ThTick, sizeof(struct TrackerWeapon), playerTh);
+	if (bombInst == NULL || bombInst->thread == NULL)
+	{
+		return;
+	}
 
 	struct Thread *bombTh = bombInst->thread;
 	bombTh->funcThDestroy = PROC_DestroyInstance;
@@ -662,6 +723,11 @@ void RB_RainCloud_FadeAway(struct Thread *t)
 	struct Instance *parentInst;
 	struct RainCloud *rcloud;
 
+	if (t == NULL || t->inst == NULL || t->object == NULL || t->parentThread == NULL || t->parentThread->inst == NULL || sdata == NULL || sdata->gGT == NULL)
+	{
+		return;
+	}
+
 #if CTR_NATIVE_60FPS
 	if (!CTR_RETAIL_FRAME_TICK(sdata->gGT->timer))
 	{
@@ -685,7 +751,10 @@ void RB_RainCloud_FadeAway(struct Thread *t)
 	}
 
 	struct RainLocal *rainLocal = rcloud->rainLocal;
-	rainLocal->frameCount -= 2;
+	if (rainLocal != NULL)
+	{
+		rainLocal->frameCount -= 2;
+	}
 
 	inst->scale.z += -0x100;
 	inst->scale.y += -0x100;
@@ -693,7 +762,10 @@ void RB_RainCloud_FadeAway(struct Thread *t)
 
 	if (inst->scale.x < 0)
 	{
-		JitPool_Remove(&sdata->gGT->JitPools.rain, (struct Item *)rainLocal);
+		if (rainLocal != NULL)
+		{
+			JitPool_Remove(&sdata->gGT->JitPools.rain, (struct Item *)rainLocal);
+		}
 
 		// This thread is now dead
 		t->flags |= THREAD_FLAG_DEAD;
@@ -710,6 +782,11 @@ void RB_RainCloud_ThTick(struct Thread *t)
 	struct Driver *d;
 	struct RainCloud *rcloud;
 	struct Instance *dInst;
+
+	if (t == NULL || t->inst == NULL || t->object == NULL || t->parentThread == NULL || t->parentThread->object == NULL || t->parentThread->inst == NULL || sdata == NULL || sdata->gGT == NULL)
+	{
+		return;
+	}
 
 	struct GameTracker *gGT = sdata->gGT;
 
@@ -832,7 +909,16 @@ void RB_RainCloud_Init(struct Driver *d)
 	// if driver -> cloudTh is invalid
 	if (d->thCloud == NULL)
 	{
+		if (d->instSelf == NULL || d->instSelf->thread == NULL)
+		{
+			return;
+		}
+
 		cloudInst = INSTANCE_BirthWithThread(STATIC_CLOUD, s_cloud1, SMALL, OTHER, RB_RainCloud_ThTick, sizeof(struct RainCloud), d->instSelf->thread);
+		if (cloudInst == NULL || cloudInst->thread == NULL)
+		{
+			return;
+		}
 
 		cloudInst->thread->funcThDestroy = PROC_DestroyInstance;
 

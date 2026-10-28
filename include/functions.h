@@ -841,6 +841,7 @@ void VehEmitter_DriverMain(struct Thread *thread, struct Driver *driver);
 int VehFrameInst_GetStartFrame(int animIndex, int numFrames);
 u32 VehFrameInst_GetNumAnimFrames(struct Instance *inst, int animIndex);
 struct MaskHeadWeapon *VehPickupItem_MaskUseWeapon(struct Driver *driver, b32 boolPlaySound);
+struct Driver *VehPickupItem_FindDriverByInstance(struct Instance *inst);
 
 void VehPhysGeneral_PhysAngular(struct Thread *t, struct Driver *d);
 

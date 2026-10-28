@@ -274,7 +274,7 @@ void VB_EndEvent_DrawMenu(void)
 			continue;
 		}
 
-		s32 winnerDriverID = isBattleMode ? gGT->winnerIndex[0] : gGT->driversInRaceOrder[0]->driverID;
+		s32 winnerDriverID = isBattleMode ? gGT->winnerIndex[0] : (gGT->driversInRaceOrder[0] != NULL ? gGT->driversInRaceOrder[0]->driverID : 0);
 		b32 isWinnerViewport = !winnerViewportFound && (winnerDriverID == player);
 
 		if (isWinnerViewport)

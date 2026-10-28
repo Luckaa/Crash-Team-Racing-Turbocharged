@@ -433,6 +433,11 @@ void UI_CupStandings_InputAndDraw(void)
 			d = gGT->drivers[data.cupPositionPerPlayer[i]];
 		}
 
+		if (d == NULL)
+		{
+			continue;
+		}
+
 		// Draw character icon
 		UI_DrawDriverIconForDriver(d->driverID, gGT->ptrIcons[data.MetaDataCharacters[data.characterIDs[d->driverID]].iconID],
 
@@ -561,6 +566,11 @@ void UI_CupStandings_InputAndDraw(void)
 
 			for (i = 0; i < numDrivers; i++)
 			{
+				if (gGT->driversInRaceOrder[i] == NULL)
+				{
+					continue;
+				}
+
 				// the amount of points this player has in the cup
 				gGT->cup.points[gGT->driversInRaceOrder[i]->driverID] +=
 

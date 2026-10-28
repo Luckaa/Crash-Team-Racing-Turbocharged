@@ -322,14 +322,17 @@ int VehPickState_NewState(struct Driver *victimDriver, int damageType, struct Dr
 
 	if ((attackDriver != NULL) && ((gameMode1 & END_OF_RACE) == 0))
 	{
-		struct PushBuffer *pb = &sdata->gGT->pushBuffer[attackDriver->driverID];
+		if (attackDriver->driverID < 4)
+		{
+			struct PushBuffer *pb = &sdata->gGT->pushBuffer[attackDriver->driverID];
 
-		SVec2 posScreen;
-		RB_Fruit_GetScreenCoords(pb, attackDriver->instSelf, posScreen.v);
+			SVec2 posScreen;
+			RB_Fruit_GetScreenCoords(pb, attackDriver->instSelf, posScreen.v);
 
-		// screenPosXY
-		attackDriver->BattleHUD.startX = pb->rect.x + posScreen.x;
-		attackDriver->BattleHUD.startY = pb->rect.y + posScreen.y - VEH_PICK_BATTLE_HUD_OFFSET_Y;
+			// screenPosXY
+			attackDriver->BattleHUD.startX = pb->rect.x + posScreen.x;
+			attackDriver->BattleHUD.startY = pb->rect.y + posScreen.y - VEH_PICK_BATTLE_HUD_OFFSET_Y;
+		}
 
 		// if-checked for Battle inside the function
 		RB_Player_KillPlayer(attackDriver, victimDriver);

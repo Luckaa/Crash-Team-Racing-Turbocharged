@@ -1273,6 +1273,11 @@ extern DriverFunc PlayerDrivingFuncTable[DRIVER_FUNC_COUNT];
 void VehPhysProc_Driving_Init(struct Thread *t, struct Driver *d)
 {
 	(void)t;
+	if (d == NULL || sdata == NULL || sdata->gGT == NULL)
+	{
+		return;
+	}
+
 	struct GameTracker *gGT = sdata->gGT;
 
 	if (((u32)(gGT->levelID - GEM_STONE_VALLEY) >= 5) || LOAD_IsOpen_AdvHub())
@@ -2477,6 +2482,11 @@ DriverFunc PlayerSpinningFuncTable[DRIVER_FUNC_COUNT] = {VehPhysProc_SpinFirst_I
 void VehPhysProc_SpinFirst_Init(struct Thread *t, struct Driver *d)
 {
 	(void)t;
+	if (d == NULL)
+	{
+		return;
+	}
+
 	int i;
 	int feedback;
 

@@ -93,6 +93,11 @@ CTR_STATIC_ASSERT(UI_BATTLE_SCORE_POINTS_ICON == 0x85);
 // Draw arrows over the heads of players
 void UI_BattleDrawHeadArrows(struct Driver *player)
 {
+	if (player == NULL || player->driverID >= 4 || sdata == NULL || sdata->gGT == NULL)
+	{
+		return;
+	}
+
 	typedef struct
 	{
 		u32 tag;
@@ -232,6 +237,11 @@ void UI_BattleDrawHeadArrows(struct Driver *player)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004fd34-0x8005045c.
 void UI_TrackerSelf(struct Driver *d)
 {
+	if (d == NULL || d->driverID >= 4 || sdata == NULL || sdata->gGT == NULL)
+	{
+		return;
+	}
+
 	s16 y;
 	s16 x;
 	s16 timer;

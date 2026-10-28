@@ -455,6 +455,7 @@ u32 main(void)
 					if (
 #if defined(CTR_NATIVE)
 					    nativeGhostRunSimulation &&
+					    (!NativeAdhoc_IsClient() || !NativeAdhoc_IsSimulationActive()) &&
 #endif
 					    (-960 < gGT->trafficLightsTimer) &&
 					    ((gGT->gameMode1 & (START_OF_RACE | PAUSE_ALL)) == 0) &&
