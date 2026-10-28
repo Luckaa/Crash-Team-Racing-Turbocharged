@@ -656,6 +656,29 @@ void VehStuckProc_MaskGrab_Init(struct Thread *t, struct Driver *d)
 	d->KartStates.MaskGrab.boolLiftingPlayer = false;
 	d->KartStates.MaskGrab.boolWhistle = false;
 
+	d->actionsFlagSet &= ~(ACTION_AIRBORNE | ACTION_HIGH_JUMP | ACTION_MASK_WEAPON);
+
+	if (t != NULL && t->childThread != NULL)
+	{
+		for (struct Thread *ct = t->childThread; ct != NULL; ct = ct->siblingThread)
+		{
+			if (ct->modelIndex == STATIC_AKUAKU || ct->modelIndex == STATIC_UKAUKA)
+			{
+				struct MaskHeadWeapon *m = (struct MaskHeadWeapon *)ct->object;
+				if (m != NULL)
+				{
+					m->duration = 0;
+					if (m->maskBeamInst != NULL)
+					{
+						INSTANCE_Death(m->maskBeamInst);
+						m->maskBeamInst = NULL;
+					}
+				}
+				ct->flags |= THREAD_FLAG_DEAD;
+			}
+		}
+	}
+
 	d->KartStates.MaskGrab.maskObj = VehPickupItem_MaskUseWeapon(d, true);
 
 	d->matrixArray = BAKED_GTE_MATRIX_NONE;
@@ -666,8 +689,6 @@ void VehStuckProc_MaskGrab_Init(struct Thread *t, struct Driver *d)
 	d->reserves = 0;
 
 	d->NoInputTimer = VEH_STUCK_MASK_GRAB_INITIAL_TIMER;
-
-	d->actionsFlagSet &= ~(ACTION_AIRBORNE | ACTION_HIGH_JUMP);
 
 	if (LOAD_IsOpen_RacingOrBattle() && ((gGT->gameMode1 & ADVENTURE_ARENA) == 0))
 	{
@@ -890,8 +911,8 @@ void VehStuckProc_PlantEaten_Init(struct Thread *t, struct Driver *d)
 	d->turbo_outsideTimer = 0;
 	d->reserves = 0;
 
-	// drop bits for airborne and high-jump state
-	d->actionsFlagSet &= ~(ACTION_AIRBORNE | ACTION_HIGH_JUMP);
+	// drop bits for airborne, high-jump, and mask weapon state
+	d->actionsFlagSet &= ~(ACTION_AIRBORNE | ACTION_HIGH_JUMP | ACTION_MASK_WEAPON);
 
 	// "cloud" is the raincloud after hitting red potion
 

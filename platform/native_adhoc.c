@@ -372,6 +372,9 @@ struct NativeAdhocDriverStateEntry
 	struct DriverCheckpointState checkpoint;
 	s16 driverRank;
 	u32 distanceToFinish_curr;
+	s16 clockReceive;
+	s8 clockFlash;
+	s8 clockSend;
 };
 
 #define NATIVE_ADHOC_MAX_WORLD_ITEMS 16
@@ -2529,6 +2532,9 @@ static void NativeAdhoc_FillDriverStateEntry(struct NativeAdhocDriverStateEntry 
 	entry->checkpoint = d->checkpoint;
 	entry->driverRank = d->driverRank;
 	entry->distanceToFinish_curr = d->distanceToFinish_curr;
+	entry->clockReceive = d->clockReceive;
+	entry->clockFlash = (s8)d->clockFlash;
+	entry->clockSend = (s8)d->clockSend;
 }
 
 static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStateEntry *entry, struct Driver *d)
@@ -2582,6 +2588,16 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 		d->timeElapsedInRace = sdata->gGT->elapsedEventTime;
 	}
 
+	// Synchronize N. Tropy Clock effect state
+	s16 oldClock = d->clockReceive;
+	d->clockReceive = entry->clockReceive;
+	d->clockFlash = (char)entry->clockFlash;
+	d->clockSend = (char)entry->clockSend;
+	if (entry->clockReceive > 0 && oldClock == 0)
+	{
+		OtherFX_Play(0x44, 1); // SOUND_CLOCK
+	}
+
 	// Trigger visual animations, sounds, and funcTable transitions when kart state changes
 	if (newState != oldState)
 	{
@@ -2626,6 +2642,26 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 			if (d->instSelf != NULL && d->instSelf->thread != NULL)
 			{
 				VehPhysProc_Driving_Init(d->instSelf->thread, d);
+			}
+			if (oldState == KS_MASK_GRABBED && d->instSelf != NULL && d->instSelf->thread != NULL)
+			{
+				for (struct Thread *ct = d->instSelf->thread->childThread; ct != NULL; ct = ct->siblingThread)
+				{
+					if (ct->modelIndex == STATIC_AKUAKU || ct->modelIndex == STATIC_UKAUKA)
+					{
+						struct MaskHeadWeapon *m = (struct MaskHeadWeapon *)ct->object;
+						if (m != NULL)
+						{
+							m->duration = 0;
+							if (m->maskBeamInst != NULL)
+							{
+								INSTANCE_Death(m->maskBeamInst);
+								m->maskBeamInst = NULL;
+							}
+						}
+						ct->flags |= THREAD_FLAG_DEAD;
+					}
+				}
 			}
 		}
 	}
@@ -2729,16 +2765,27 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 	// Synchronize Mask state (Aku Aku / Uka Uka)
 	b32 hostHasMask = (entry->actionsFlagSet & ACTION_MASK_WEAPON) != 0;
 	b32 clientHasMask = false;
-	struct Thread *maskTh = NULL;
 	if (d->instSelf != NULL && d->instSelf->thread != NULL)
 	{
 		for (struct Thread *ct = d->instSelf->thread->childThread; ct != NULL; ct = ct->siblingThread)
 		{
-			if ((u32)(ct->modelIndex - STATIC_AKUAKU) < MASK_MODEL_COUNT)
+			if ((ct->modelIndex == STATIC_AKUAKU || ct->modelIndex == STATIC_UKAUKA) && ((ct->flags & THREAD_FLAG_DEAD) == 0))
 			{
 				clientHasMask = true;
-				maskTh = ct;
-				break;
+				if (!hostHasMask)
+				{
+					struct MaskHeadWeapon *mask = (struct MaskHeadWeapon *)ct->object;
+					if (mask != NULL)
+					{
+						mask->duration = 0;
+						if (mask->maskBeamInst != NULL)
+						{
+							INSTANCE_Death(mask->maskBeamInst);
+							mask->maskBeamInst = NULL;
+						}
+					}
+					ct->flags |= THREAD_FLAG_DEAD;
+				}
 			}
 		}
 	}
@@ -2748,16 +2795,7 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 	}
 	else if (!hostHasMask)
 	{
-		if (clientHasMask && maskTh != NULL)
-		{
-			struct MaskHeadWeapon *mask = (struct MaskHeadWeapon *)maskTh->object;
-			if (mask != NULL && mask->maskBeamInst != NULL)
-			{
-				INSTANCE_Death(mask->maskBeamInst);
-				mask->maskBeamInst = NULL;
-			}
-			maskTh->flags |= THREAD_FLAG_DEAD;
-		}
+		d->actionsFlagSet &= ~ACTION_MASK_WEAPON;
 	}
 
 	// Synchronize Turbo exhaust flames for remote drivers
@@ -2840,6 +2878,10 @@ static void NativeAdhoc_SendDriverState(const struct GameTracker *gGT)
 		for (int i = 0; i < numInst; i++)
 		{
 			struct InstDef *def = &gGT->level1->ptrInstDefs[i];
+			if (def->modelID != PU_RANDOM_CRATE && def->modelID != PU_FRUIT_CRATE)
+			{
+				continue;
+			}
 			if (def->ptrInstance != NULL)
 			{
 				if (def->ptrInstance->scale.x < 0x1000)
@@ -2873,6 +2915,31 @@ static void NativeAdhoc_SendDriverState(const struct GameTracker *gGT)
 				item->posY = (s16)th->inst->matrix.t[1];
 				item->posZ = (s16)th->inst->matrix.t[2];
 				item->rotY = (s16)((th->inst->matrix.m[0][0] != 0 || th->inst->matrix.m[2][2] != 0) ? ratan2(th->inst->matrix.m[0][2], th->inst->matrix.m[2][2]) : 0);
+			}
+		}
+	}
+
+	// Also scan driver child threads for projectiles attached as children (bombs and thrown shields)
+	for (int d = 0; d < 8 && packet.itemCount < NATIVE_ADHOC_MAX_WORLD_ITEMS; d++)
+	{
+		if (gGT->drivers[d] != NULL && gGT->drivers[d]->instSelf != NULL && gGT->drivers[d]->instSelf->thread != NULL)
+		{
+			for (struct Thread *th = gGT->drivers[d]->instSelf->thread->childThread; th != NULL && packet.itemCount < NATIVE_ADHOC_MAX_WORLD_ITEMS; th = th->siblingThread)
+			{
+				if (th->inst != NULL && th->inst->model != NULL && ((th->flags & THREAD_FLAG_DEAD) == 0) && ((th->inst->flags & HIDE_MODEL) == 0))
+				{
+					u8 mId = (u8)th->inst->model->id;
+					if (mId == DYNAMIC_BOMB || mId == DYNAMIC_SHIELD || mId == DYNAMIC_SHIELD_GREEN)
+					{
+						struct NativeAdhocWorldItem *item = &packet.items[packet.itemCount++];
+						item->modelID = mId;
+						item->flags = 1;
+						item->posX = (s16)th->inst->matrix.t[0];
+						item->posY = (s16)th->inst->matrix.t[1];
+						item->posZ = (s16)th->inst->matrix.t[2];
+						item->rotY = (s16)((th->inst->matrix.m[0][0] != 0 || th->inst->matrix.m[2][2] != 0) ? ratan2(th->inst->matrix.m[0][2], th->inst->matrix.m[2][2]) : 0);
+					}
+				}
 			}
 		}
 	}
@@ -2936,6 +3003,10 @@ static void NativeAdhoc_HandleDriverState(const struct NativeAdhocDriverStatePac
 		for (int i = 0; i < numInst; i++)
 		{
 			struct InstDef *def = &gGT->level1->ptrInstDefs[i];
+			if (def->modelID != PU_RANDOM_CRATE && def->modelID != PU_FRUIT_CRATE)
+			{
+				continue;
+			}
 			if (def->ptrInstance != NULL)
 			{
 				struct Instance *crateInst = def->ptrInstance;
@@ -2969,6 +3040,10 @@ static void NativeAdhoc_HandleDriverState(const struct NativeAdhocDriverStatePac
 		for (int i = 0; i < gGT->level1->numInstances; i++)
 		{
 			struct InstDef *def = &gGT->level1->ptrInstDefs[i];
+			if (def->modelID != PU_RANDOM_CRATE && def->modelID != PU_FRUIT_CRATE)
+			{
+				continue;
+			}
 			if (def->ptrInstance != NULL && def->ptrInstance->scale.x >= 0x1000)
 			{
 				int dx = kx - def->ptrInstance->matrix.t[0];
