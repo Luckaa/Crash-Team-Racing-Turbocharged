@@ -91,7 +91,7 @@ void VB_EndEvent_DrawMenu(void)
 	use30HzStep = CTR_RETAIL_FRAME_TICK(gGT->timer);
 #endif
 #if defined(CTR_NATIVE)
-	b32 adhocSingleView = NativeAdhoc_IsConnected() && (numPlayers == 2) &&
+	b32 adhocSingleView = NativeAdhoc_IsConnected() && (numPlayers >= 2) &&
 	                       (NativeAdhoc_GetGameMode() == NATIVE_ADHOC_GAME_MODE_VS);
 #else
 	b32 adhocSingleView = false;
@@ -306,7 +306,14 @@ void VB_EndEvent_DrawMenu(void)
 		}
 		else
 		{
-				if (use30HzStep && (view->rect.w > 0))
+#if defined(CTR_NATIVE)
+			if (NativeAdhoc_IsConnected())
+			{
+				// In network play, keep full viewport active for all players
+			}
+			else
+#endif
+			if (use30HzStep && (view->rect.w > 0))
 			{
 				view->rect.x += VB_LOSER_RECT_STEP_X;
 				view->rect.y += VB_LOSER_RECT_STEP_Y;

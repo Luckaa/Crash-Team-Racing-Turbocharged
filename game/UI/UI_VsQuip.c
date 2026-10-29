@@ -606,6 +606,15 @@ void UI_VsWaitForPressX(void)
 		}
 #endif
 		int buttonsTapped = sdata->gGamepads->gamepad[playerIndex].buttonsTapped;
+#if defined(CTR_NATIVE)
+		if (NativeAdhoc_IsConnected())
+		{
+			if (playerIndex == adhocLocalPlayer)
+			{
+				buttonsTapped |= sdata->gGamepads->gamepad[0].buttonsTapped;
+			}
+		}
+#endif
 
 		// If Player has not pressed X to continue
 		// Draw comment, and battle stats
@@ -725,6 +734,18 @@ void UI_VsWaitForPressX(void)
 	}
 
 	// If all players press X to continue
+#if defined(CTR_NATIVE)
+	if (NativeAdhoc_IsConnected())
+	{
+		// In network multiplayer, each client machine controls its own screen and advances when the local player is ready
+		if (((sdata->Battle_EndOfRace.boolPressX[adhocLocalPlayer] & UI_VS_WAIT_PLAYER_READY) != 0) || (readyCount >= 1))
+		{
+			gGT->timerEndOfRaceVS = 0;
+			*(int *)&sdata->Battle_EndOfRace.boolPressX[0] = 0;
+		}
+	}
+	else
+#endif
 	if (readyCount == numPlayers)
 	{
 		// Stop drawing 4 screens, draw 1 screen and options

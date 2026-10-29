@@ -19,6 +19,16 @@ void PROC_DestroyTracker(struct Thread *t)
 {
 	struct GameTracker *gGT = sdata->gGT;
 
+	if (t != NULL && t->object != NULL)
+	{
+		struct TrackerWeapon *tw = (struct TrackerWeapon *)t->object;
+		if (tw->soundIDCount != 0)
+		{
+			OtherFX_RecycleMute(&tw->soundIDCount);
+			tw->soundIDCount = 0;
+		}
+	}
+
 	if (gGT->numMissiles > 0)
 	{
 		gGT->numMissiles--;

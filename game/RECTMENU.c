@@ -2156,6 +2156,17 @@ int RECTMENU_ProcessInput(struct RectMenu *m)
 	{
 		// get button from P1 (local controller at this machine)
 		button = sdata->buttonTapPerPlayer[0];
+#if defined(CTR_NATIVE)
+		if (NativeAdhoc_IsConnected())
+		{
+			int localIndex = NativeAdhoc_GetLocalPlayerIndex();
+			if (localIndex >= 0 && localIndex < 4)
+			{
+				button |= sdata->buttonTapPerPlayer[localIndex];
+			}
+			button |= sdata->AnyPlayerTap;
+		}
+#endif
 	}
 
 	if (

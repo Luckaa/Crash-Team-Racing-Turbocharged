@@ -2246,6 +2246,15 @@ static void NativeAdhoc_DestroyClientWorldItem(int index)
 	struct Thread *th = s_clientWorldItemThreads[index];
 	if (th != NULL)
 	{
+		if (th->object != NULL)
+		{
+			struct TrackerWeapon *tw = (struct TrackerWeapon *)th->object;
+			if (tw->soundIDCount != 0)
+			{
+				OtherFX_RecycleMute(&tw->soundIDCount);
+				tw->soundIDCount = 0;
+			}
+		}
 		if (th->inst != NULL)
 		{
 			if (th->modelIndex == DYNAMIC_BOMB || th->modelIndex == DYNAMIC_ROCKET || th->modelIndex == DYNAMIC_WARPBALL)
@@ -2780,6 +2789,7 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 				{
 					memset(tnt, 0, sizeof(struct MineWeapon));
 					tnt->driverTarget = d;
+					tnt->jumpsRemaining = 6;
 					static const s16 headY[0x10] = {32, 32, 64, 32, 32, 48, 32, 32, 48, 64, 32, 48, 56, 24, 32, 56};
 					int charId = data.characterIDs[d->driverID];
 					tnt->deltaPos.y = (charId >= 0 && charId < 0x10) ? headY[charId] : 32;
@@ -2797,16 +2807,39 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 		{
 			PlaySound3D(0x3d, d->instTntRecv);
 			RB_Blowup_Init(d->instTntRecv);
+			d->instTntRecv->scale.x = 0;
+			d->instTntRecv->scale.y = 0;
+			d->instTntRecv->scale.z = 0;
+			d->instTntRecv->flags |= HIDE_MODEL;
+			if (d->instTntRecv->thread != NULL)
+			{
+				d->instTntRecv->thread->flags |= THREAD_FLAG_DEAD;
+			}
+			d->instTntRecv = NULL;
 		}
-		d->instTntRecv->scale.x = 0;
-		d->instTntRecv->scale.y = 0;
-		d->instTntRecv->scale.z = 0;
-		d->instTntRecv->flags |= HIDE_MODEL;
-		if (d->instTntRecv->thread != NULL)
+		else
 		{
-			d->instTntRecv->thread->flags |= THREAD_FLAG_DEAD;
+			// Driver shook off TNT with jumps! Animate ThrowOffHead
+			struct Thread *th = d->instTntRecv->thread;
+			if (th != NULL && th->funcThTick != RB_TNT_ThTick_ThrowOffHead)
+			{
+				struct MineWeapon *mw = (struct MineWeapon *)th->object;
+				if (mw != NULL)
+				{
+					mw->velocity.x = 0;
+					mw->velocity.y = 0x30;
+					mw->velocity.z = 0;
+					mw->deltaPos.x = 0;
+					mw->deltaPos.y = 0;
+					mw->deltaPos.z = 0;
+				}
+				d->instTntRecv->scale.x = 0x800;
+				d->instTntRecv->scale.y = 0x800;
+				d->instTntRecv->scale.z = 0x800;
+				ThTick_SetAndExec(th, RB_TNT_ThTick_ThrowOffHead);
+			}
+			d->instTntRecv = NULL;
 		}
-		d->instTntRecv = NULL;
 	}
 
 	if (d->instSelf != NULL)
@@ -3098,7 +3131,7 @@ static void NativeAdhoc_SendDriverState(const struct GameTracker *gGT)
 static void NativeAdhoc_HandleDriverState(const struct NativeAdhocDriverStatePacket *packet)
 {
 	struct GameTracker *gGT = sdata != NULL ? sdata->gGT : NULL;
-	if ((packet == NULL) || (gGT == NULL) || !s_nativeAdhoc.simulationActive)
+	if ((packet == NULL) || (gGT == NULL) || !s_nativeAdhoc.simulationActive || (sdata->Loading.stage != LOAD_IDLE))
 	{
 		return;
 	}
@@ -3108,9 +3141,24 @@ static void NativeAdhoc_HandleDriverState(const struct NativeAdhocDriverStatePac
 		return;
 	}
 
+	b32 wasEndOfRace = (gGT->gameMode1 & END_OF_RACE) != 0;
 	gGT->trafficLightsTimer = packet->trafficLightsTimer;
 	gGT->elapsedEventTime = packet->elapsedEventTime;
 	gGT->gameMode1 = (gGT->gameMode1 & ~(START_OF_RACE | END_OF_RACE)) | (packet->gameMode1 & (START_OF_RACE | END_OF_RACE));
+
+	if (!wasEndOfRace && ((packet->gameMode1 & END_OF_RACE) != 0))
+	{
+		for (int dIdx = 0; dIdx < 8; dIdx++)
+		{
+			struct Driver *cd = gGT->drivers[dIdx];
+			if (cd != NULL && (cd->actionsFlagSet & ACTION_RACE_FINISHED) == 0)
+			{
+				cd->actionsFlagSet |= ACTION_RACE_FINISHED;
+				cd->heldItemID = HELD_ITEM_NONE;
+			}
+		}
+		MainGameEnd_Initialize();
+	}
 
 	// If the race is no longer in intro (countdown or active race),
 	// ensure the client definitely has race HUD enabled and camera intro completed.
@@ -3254,7 +3302,6 @@ static void NativeAdhoc_HandleDriverState(const struct NativeAdhocDriverStatePac
 								inst->scale.y = 0x400;
 								inst->scale.z = 0x400;
 								inst->alphaScale = 0x400;
-								PlaySound3D(0x59, inst);
 							}
 							else
 							{
@@ -3298,10 +3345,23 @@ static void NativeAdhoc_HandleDriverState(const struct NativeAdhocDriverStatePac
 			inst->matrix.t[2] = item->posZ;
 			s16 norm[3] = {0, 0x1000, 0};
 			VehPhysForce_RotAxisAngle(&inst->matrix, norm, item->rotY);
+			struct TrackerWeapon *tw = (struct TrackerWeapon *)th->object;
 			if (item->modelID == DYNAMIC_WARPBALL)
 			{
 				hasWarpball = true;
 				PlaySound3D_Flags(&s_clientWarpballSound, 0x4e, inst); // Travel loop sound
+			}
+			else if ((item->modelID == DYNAMIC_SHIELD || item->modelID == DYNAMIC_SHIELD_GREEN) && (tw != NULL))
+			{
+				PlaySound3D_Flags(&tw->soundIDCount, 0x59, inst); // Travel loop sound
+			}
+			else if (item->modelID == DYNAMIC_ROCKET && (tw != NULL))
+			{
+				PlaySound3D_Flags(&tw->soundIDCount, 0x4b, inst); // Rocket travel loop sound
+			}
+			else if (item->modelID == DYNAMIC_BOMB && (tw != NULL))
+			{
+				PlaySound3D_Flags(&tw->soundIDCount, 0x48, inst); // Bomb roll loop sound
 			}
 		}
 	}

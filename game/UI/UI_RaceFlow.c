@@ -499,6 +499,13 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 
 	case UI_RACE_END_OPTION_RETRY:
 	{
+#if defined(CTR_NATIVE)
+		if (NativeAdhoc_IsActive())
+		{
+			NativeAdhoc_RequestReturnToMainMenu();
+			break;
+		}
+#endif
 		if (gNativeBossFightMode != 0)
 		{
 			NativeBossFight_ArmGameplay();
@@ -551,6 +558,14 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 		// Erase ghost of previous race from RAM
 		GhostTape_Destroy();
 
+#if defined(CTR_NATIVE)
+		if (NativeAdhoc_IsActive())
+		{
+			NativeAdhoc_RequestReturnToMainMenu();
+			break;
+		}
+#endif
+
 		// MAIN_MENU_CHARACTERS or MAIN_MENU_TRACK_SELECT
 		sdata->mainMenuState = (MainMenuState)(option - 4);
 
@@ -579,6 +594,13 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 	// Change Setup
 	case UI_RACE_END_OPTION_CHANGE_SETUP:
 	{
+#if defined(CTR_NATIVE)
+		if (NativeAdhoc_IsActive())
+		{
+			NativeAdhoc_RequestReturnToMainMenu();
+			break;
+		}
+#endif
 		// go to battle setup screen
 		sdata->mainMenuState = MAIN_MENU_BATTLE_SETUP;
 

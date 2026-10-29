@@ -1030,9 +1030,21 @@ void UI_RenderFrame_Racing()
 				                   pb->rect.y + (pb->rect.h >> 1) - 0x1e, // midpointY
 				                   FONT_BIG, (JUSTIFY_CENTER | ORANGE));
 
+				int buttonsDismiss = sdata->gGamepads->gamepad[i].buttonsTapped;
+#if defined(CTR_NATIVE)
+				if (NativeAdhoc_IsConnected())
+				{
+					buttonsDismiss |= sdata->gGamepads->gamepad[0].buttonsTapped;
+					if (adhocLocalPlayer >= 0 && adhocLocalPlayer < 4)
+					{
+						buttonsDismiss |= sdata->gGamepads->gamepad[adhocLocalPlayer].buttonsTapped;
+					}
+				}
+#endif
+
 				if (
 				    // If you press Cross or Start
-				    ((sdata->gGamepads->gamepad[i].buttonsTapped & 0x1010) != 0) &&
+				    ((buttonsDismiss & 0x1010) != 0) &&
 
 				    // If you're in End-Of-Race menu
 				    ((gameMode1 & END_OF_RACE) != 0))

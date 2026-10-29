@@ -148,15 +148,30 @@ void RB_TNT_ThTick_SitOnHead(struct Thread *t)
 	// if this driver is not an AI
 	if ((mw->driverTarget->actionsFlagSet & ACTION_BOT) == 0)
 	{
+#if defined(CTR_NATIVE)
+		if (NativeAdhoc_IsClient())
+		{
+			// In network multiplayer, the authoritative host determines when the TNT shakes off or detonates.
+			// Do NOT detach early on the client ahead of the host confirmation.
+			goto LAB_800ad5f8;
+		}
+#endif
+
+		// Fallback: Ensure driver requires multiple hops to shake off TNT (5-7 jumps)
+		if (mw->jumpsRemaining <= 0 && mw->numFramesOnHead == 0)
+		{
+			mw->jumpsRemaining = 6;
+		}
+
 		// if player did not start jumping this frame
 		if ((mw->driverTarget->actionsFlagSet & ACTION_JUMP_STARTED) == 0)
 		{
 			goto LAB_800ad5f8;
 		}
 
-		if (mw->jumpsRemaining != 0)
+		if (mw->jumpsRemaining > 0)
 		{
-			mw->jumpsRemaining += -1;
+			mw->jumpsRemaining--;
 			goto LAB_800ad5f8;
 		}
 		mw->jumpsRemaining = 0;
