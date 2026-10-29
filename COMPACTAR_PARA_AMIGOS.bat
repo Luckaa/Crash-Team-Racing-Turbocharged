@@ -26,12 +26,22 @@ if "%OPCAO%"=="4" (
 )
 
 echo.
-echo [*] Gerando pacote ZIP configurado para o Host: !HOST_IP! ...
+echo [*] Gerando pacote ZIP super simplificado para o Host: !HOST_IP! ...
 python tools\package_portable.py !HOST_IP!
 echo.
 echo ========================================================
-echo [CONCLUIDO] O arquivo CTR_Turbocharged_Multiplayer.zip 
-echo foi gerado com sucesso pre-configurado para o seu IP!
-echo Basta enviar o .ZIP para seus amigos!
+echo [CONCLUIDO COM SUCESSO!]
+echo.
+echo O arquivo ZIP que voce deve mandar para os seus amigos:
+echo %CD%\CTR_Turbocharged_Multiplayer.zip
+echo.
+echo O que seus amigos precisam fazer:
+echo   1. Baixar e descompactar o arquivo .zip
+echo   2. Entrar na sua sala no Radmin VPN
+echo   3. Dar dois cliques em "JOGAR.bat"
+echo   4. No jogo: MULTIPLAYER -^> BUSCAR SALA
 echo ========================================================
-pause
+echo.
+echo Pressione qualquer tecla para abrir a pasta do ZIP...
+pause >nul
+explorer.exe /select,"%~dp0CTR_Turbocharged_Multiplayer.zip"
