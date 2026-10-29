@@ -91,6 +91,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 desktop.ini
+.tmp.driveupload/
 
 # Generated Linux AppImage packages and extracted images.
 *.AppImage
