@@ -92,6 +92,7 @@ __pycache__/
 Thumbs.db
 desktop.ini
 .tmp.driveupload/
+*.zip
 
 # Generated Linux AppImage packages and extracted images.
 *.AppImage
