@@ -701,7 +701,15 @@ void LOAD_LangFile(int bigfilePtr, int lang)
 
 	lngFile = sdata->lngFile;
 
-	lngFile = LOAD_ReadFile_ex((struct BigHeader *)bigfilePtr, LT_SETADDR, BI_LANGUAGEFILE + lang, lngFile, &size, NULL);
+	int fileLang = lang;
+#if defined(CTR_NATIVE)
+	if (lang == 8)
+	{
+		fileLang = 2; // Use PAL English as base for Portuguese translations
+	}
+#endif
+
+	lngFile = LOAD_ReadFile_ex((struct BigHeader *)bigfilePtr, LT_SETADDR, BI_LANGUAGEFILE + fileLang, lngFile, &size, NULL);
 	if (lngFile == NULL)
 	{
 		return;
@@ -718,7 +726,12 @@ void LOAD_LangFile(int bigfilePtr, int lang)
 		strArray[i] = (char *)((u32)strArray[i] + (u32)lngFile);
 	}
 #if defined(CTR_NATIVE)
-	NativeAudio_SetVoiceLanguage(lang);
+	if (lang == 8)
+	{
+		extern void Native_ApplyPortugueseTranslation(char **strArray, int numStrings);
+		Native_ApplyPortugueseTranslation(strArray, numStrings);
+	}
+	NativeAudio_SetVoiceLanguage(lang == 8 ? 2 : lang);
 #elif BUILD == EurRetail
 	// set voicelines to new lang
 	CDSYS_SetXAToLang(lang);

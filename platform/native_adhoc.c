@@ -349,6 +349,7 @@ struct NativeAdhocDriverStateEntry
 	u8 matrixArray;
 	s16 squishTimer;
 	s16 burnTimer;
+	s16 noInputTimer;
 	s16 speed;
 	s16 speedApprox;
 	s16 reserves;
@@ -359,6 +360,7 @@ struct NativeAdhocDriverStateEntry
 	u8 shieldType;
 	u8 matrixIndex;
 	u8 hasTntOnHead;
+	u8 isModelHidden;
 	s16 animFrame;
 	u16 tireColor;
 	s16 wheelRotation;
@@ -375,6 +377,7 @@ struct NativeAdhocDriverStateEntry
 	s16 clockReceive;
 	s8 clockFlash;
 	s8 clockSend;
+	s32 lapTimes[7];
 };
 
 #define NATIVE_ADHOC_MAX_WORLD_ITEMS 16
@@ -2237,14 +2240,62 @@ static int NativeAdhoc_SessionMatchesLocal(const struct NativeAdhocSessionPacket
 static struct Thread *s_clientWorldItemThreads[NATIVE_ADHOC_MAX_WORLD_ITEMS] = {0};
 static u32 s_clientWarpballSound = 0;
 
-static void NativeAdhoc_ApplySessionConfig(const struct NativeAdhocSessionPacket *packet, struct GameTracker *gGT)
+static void NativeAdhoc_DestroyClientWorldItem(int index)
 {
-	memset(s_clientWorldItemThreads, 0, sizeof(s_clientWorldItemThreads));
+	if (index < 0 || index >= NATIVE_ADHOC_MAX_WORLD_ITEMS) return;
+	struct Thread *th = s_clientWorldItemThreads[index];
+	if (th != NULL)
+	{
+		if (th->inst != NULL)
+		{
+			if (th->modelIndex == DYNAMIC_BOMB || th->modelIndex == DYNAMIC_ROCKET || th->modelIndex == DYNAMIC_WARPBALL)
+			{
+				PlaySound3D(th->modelIndex == DYNAMIC_BOMB ? 0x49 : 0x4c, th->inst);
+				RB_Burst_Init(th->inst);
+			}
+			else if (th->modelIndex == DYNAMIC_SHIELD || th->modelIndex == DYNAMIC_SHIELD_GREEN)
+			{
+				PlaySound3D(0x58, th->inst);
+				RB_Burst_Init(th->inst);
+			}
+			else if (th->modelIndex == STATIC_BEAKER_GREEN || th->modelIndex == STATIC_BEAKER_RED)
+			{
+				PlaySound3D(0x3f, th->inst);
+				RB_Explosion_InitPotion(th->inst);
+			}
+			else if (th->modelIndex == STATIC_CRATE_NITRO || th->modelIndex == PU_EXPLOSIVE_CRATE)
+			{
+				PlaySound3D(0x3f, th->inst);
+				RB_Blowup_Init(th->inst);
+			}
+			th->inst->flags |= HIDE_MODEL;
+			th->inst->scale.x = 0;
+			th->inst->scale.y = 0;
+			th->inst->scale.z = 0;
+			INSTANCE_Death(th->inst);
+			th->inst = NULL;
+		}
+		th->flags |= THREAD_FLAG_DEAD;
+		s_clientWorldItemThreads[index] = NULL;
+	}
+}
+
+static void NativeAdhoc_ClearClientWorldItems(void)
+{
+	for (int i = 0; i < NATIVE_ADHOC_MAX_WORLD_ITEMS; i++)
+	{
+		NativeAdhoc_DestroyClientWorldItem(i);
+	}
 	if (s_clientWarpballSound != 0)
 	{
 		OtherFX_RecycleMute(&s_clientWarpballSound);
 		s_clientWarpballSound = 0;
 	}
+}
+
+static void NativeAdhoc_ApplySessionConfig(const struct NativeAdhocSessionPacket *packet, struct GameTracker *gGT)
+{
+	NativeAdhoc_ClearClientWorldItems();
 	if ((packet == NULL) || (gGT == NULL))
 	{
 		return;
@@ -2513,6 +2564,7 @@ static void NativeAdhoc_FillDriverStateEntry(struct NativeAdhocDriverStateEntry 
 	}
 	entry->timeElapsedInRace = d->timeElapsedInRace;
 	entry->tireColor = d->tireColor;
+	entry->noInputTimer = d->NoInputTimer;
 	if (d->instBubbleHold != NULL && d->instBubbleHold->thread != NULL)
 	{
 		struct Shield *s = (struct Shield *)d->instBubbleHold->thread->object;
@@ -2535,6 +2587,11 @@ static void NativeAdhoc_FillDriverStateEntry(struct NativeAdhocDriverStateEntry 
 	entry->clockReceive = d->clockReceive;
 	entry->clockFlash = (s8)d->clockFlash;
 	entry->clockSend = (s8)d->clockSend;
+	entry->isModelHidden = (d->instSelf != NULL && (d->instSelf->flags & HIDE_MODEL) != 0) ? 1 : 0;
+	for (int l = 0; l < 7; l++)
+	{
+		entry->lapTimes[l] = UI_NativeLapTime_Get(l, d->driverID);
+	}
 }
 
 static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStateEntry *entry, struct Driver *d)
@@ -2544,8 +2601,13 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 		return;
 	}
 
+	b32 isLocal = (d->driverID == NativeAdhoc_GetLocalPlayerIndex());
 	u8 oldState = d->kartState;
 	u8 newState = entry->kartState;
+	if (isLocal && (d->kartState == KS_SPINNING || d->kartState == KS_BLASTED) && (d->NoInputTimer > 0))
+	{
+		newState = d->kartState;
+	}
 	s16 oldSquish = d->squishTimer;
 	s16 newSquish = entry->squishTimer;
 	s16 oldBurn = d->burnTimer;
@@ -2553,8 +2615,11 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 
 	d->posCurr = entry->posCurr;
 	d->velocity = entry->velocity;
-	d->rotCurr = entry->rotCurr;
-	d->angle = entry->angle;
+	if (!isLocal || (d->kartState != KS_SPINNING && d->kartState != KS_BLASTED))
+	{
+		d->rotCurr = entry->rotCurr;
+		d->angle = entry->angle;
+	}
 	d->wheelRotation = entry->wheelRotation;
 	d->normalVecUP.x = entry->normalVec.x;
 	d->normalVecUP.y = entry->normalVec.y;
@@ -2569,7 +2634,7 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 	d->fireSpeed = entry->fireSpeed;
 	d->fireSpeedCap = entry->fireSpeedCap;
 	d->actionsFlagSet = entry->actionsFlagSet;
-	d->kartState = entry->kartState;
+	d->kartState = newState;
 	d->heldItemID = (DriverHeldItem)entry->heldItemID;
 	d->numHeldItems = entry->numHeldItems;
 	d->numWumpas = entry->numWumpas;
@@ -2580,6 +2645,10 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 	d->tireColor = entry->tireColor;
 	d->squishTimer = entry->squishTimer;
 	d->burnTimer = entry->burnTimer;
+	if (!isLocal || (d->kartState != KS_SPINNING && d->kartState != KS_BLASTED))
+	{
+		d->NoInputTimer = entry->noInputTimer;
+	}
 	d->matrixArray = entry->matrixArray;
 	d->matrixIndex = entry->matrixIndex;
 	d->timeElapsedInRace = entry->timeElapsedInRace;
@@ -2598,15 +2667,29 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 		OtherFX_Play(0x44, 1); // SOUND_CLOCK
 	}
 
+	for (int l = 0; l < 7; l++)
+	{
+		if (entry->lapTimes[l] > 0)
+		{
+			UI_SaveLapTime(l, entry->lapTimes[l], d->driverID);
+		}
+	}
+
 	// Trigger visual animations, sounds, and funcTable transitions when kart state changes
 	if (newState != oldState)
 	{
 		if (newState == KS_BLASTED && oldState != KS_BLASTED)
 		{
+			d->NoInputTimer = VEH_PICK_BLAST_NO_INPUT_TIMER;
 			if (d->instSelf != NULL && d->instSelf->thread != NULL)
 			{
 				VehStuckProc_Tumble_Init(d->instSelf->thread, d);
 			}
+			d->jump_ForcedMS = VEH_TUMBLE_FORCED_JUMP_MS;
+			d->baseSpeed = 0;
+			d->fireSpeed = 0;
+			d->actionsFlagSet |= ACTION_WARP | ACTION_FRONT_SKID | ACTION_BACK_SKID | ACTION_ACCEL_PREVENTION;
+			d->jump_InitialVelY = (s16)CTR_MipsAddLo(CTR_MipsSll((u16)d->NoInputTimer, VEH_TUMBLE_JUMP_VELOCITY_TIMER_SHIFT), VEH_TUMBLE_JUMP_VELOCITY_BASE);
 			if (d->instSelf != NULL)
 			{
 				PlaySound3D(0x4c, d->instSelf);
@@ -2615,10 +2698,12 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 		}
 		else if (newState == KS_SPINNING && oldState != KS_SPINNING)
 		{
+			d->NoInputTimer = (newSquish != 0) ? VEH_PICK_SQUISH_NO_INPUT_TIMER : VEH_PICK_SPIN_NO_INPUT_TIMER;
 			if (d->instSelf != NULL && d->instSelf->thread != NULL)
 			{
 				VehPhysProc_SpinFirst_Init(d->instSelf->thread, d);
 			}
+			d->rotationSpinRate = d->KartStates.Spinning.driftSpinRate;
 			if (newSquish != 0)
 			{
 				OtherFX_Play_Echo(VEH_PICK_SOUND_SQUISH, 1, d->actionsFlagSet & ACTION_ENGINE_ECHO);
@@ -2637,31 +2722,27 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 				VehStuckProc_MaskGrab_Init(d->instSelf->thread, d);
 			}
 		}
-		else if (newState == KS_NORMAL && (oldState == KS_BLASTED || oldState == KS_SPINNING || oldState == KS_MASK_GRABBED))
+		else if (newState == KS_NORMAL && (oldState == KS_BLASTED || oldState == KS_SPINNING || oldState == KS_MASK_GRABBED || oldState == KS_ENGINE_REVVING))
 		{
 			if (d->instSelf != NULL && d->instSelf->thread != NULL)
 			{
 				VehPhysProc_Driving_Init(d->instSelf->thread, d);
 			}
-			if (oldState == KS_MASK_GRABBED && d->instSelf != NULL && d->instSelf->thread != NULL)
+			if ((oldState == KS_MASK_GRABBED || oldState == KS_ENGINE_REVVING) && d->instSelf != NULL && d->instSelf->thread != NULL)
 			{
 				for (struct Thread *ct = d->instSelf->thread->childThread; ct != NULL; ct = ct->siblingThread)
 				{
 					if (ct->modelIndex == STATIC_AKUAKU || ct->modelIndex == STATIC_UKAUKA)
 					{
 						struct MaskHeadWeapon *m = (struct MaskHeadWeapon *)ct->object;
-						if (m != NULL)
+						if (m != NULL && ct->funcThTick == RB_MaskWeapon_ThTick)
 						{
 							m->duration = 0;
-							if (m->maskBeamInst != NULL)
-							{
-								INSTANCE_Death(m->maskBeamInst);
-								m->maskBeamInst = NULL;
-							}
+							ThTick_SetAndExec(ct, RB_MaskWeapon_FadeAway);
 						}
-						ct->flags |= THREAD_FLAG_DEAD;
 					}
 				}
+				d->actionsFlagSet &= ~ACTION_MASK_WEAPON;
 			}
 		}
 	}
@@ -2688,6 +2769,9 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 		if (instCrate != NULL)
 		{
 			instCrate->flags |= PIXEL_LOD;
+			instCrate->scale.x = 0x800;
+			instCrate->scale.y = 0x800;
+			instCrate->scale.z = 0x800;
 			if (instCrate->thread != NULL)
 			{
 				instCrate->thread->funcThDestroy = PROC_DestroyInstance;
@@ -2696,7 +2780,11 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 				{
 					memset(tnt, 0, sizeof(struct MineWeapon));
 					tnt->driverTarget = d;
+					static const s16 headY[0x10] = {32, 32, 64, 32, 32, 48, 32, 32, 48, 64, 32, 48, 56, 24, 32, 56};
+					int charId = data.characterIDs[d->driverID];
+					tnt->deltaPos.y = (charId >= 0 && charId < 0x10) ? headY[charId] : 32;
 					tnt->stopFallAtY = instCrate->matrix.t[1];
+					LHMatrix_Parent(instCrate, d->instSelf, &tnt->deltaPos);
 				}
 			}
 			d->instTntRecv = instCrate;
@@ -2705,6 +2793,11 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 	}
 	else if (!entry->hasTntOnHead && (d->instTntRecv != NULL))
 	{
+		if (newState == KS_BLASTED || d->kartState == KS_BLASTED)
+		{
+			PlaySound3D(0x3d, d->instTntRecv);
+			RB_Blowup_Init(d->instTntRecv);
+		}
 		d->instTntRecv->scale.x = 0;
 		d->instTntRecv->scale.y = 0;
 		d->instTntRecv->scale.z = 0;
@@ -2720,34 +2813,50 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 	{
 		struct Instance *inst = d->instSelf;
 
-		// Make sure kart model is visible and clear water-clipping flag
-		inst->flags &= ~(HIDE_MODEL | SPLIT_LINE);
+		// Check if driver was eaten by plant or marked hidden by authoritative host
+		extern void VehStuckProc_PlantEaten_Update(struct Thread *t, struct Driver *d);
+		b32 isEaten = (d->funcPtrs[DRIVER_FUNC_UPDATE] == VehStuckProc_PlantEaten_Update) || (entry->isModelHidden != 0);
+		if (isEaten)
+		{
+			inst->flags |= HIDE_MODEL;
+		}
+		else
+		{
+			inst->flags &= ~HIDE_MODEL;
+		}
+		inst->flags &= ~SPLIT_LINE;
 
-		// Synchronize character animation pose
-		inst->animIndex = (s16)entry->animIndex;
-		inst->animFrame = entry->animFrame;
+		// Synchronize character animation pose for remote drivers (local driver animates locally)
+		if (!isLocal)
+		{
+			inst->animIndex = (s16)entry->animIndex;
+			inst->animFrame = entry->animFrame;
+		}
 
 		// Check if host sent valid non-identity matrix, or if before green light
 		int isIdentity = (entry->matrix[0][0] == 0x1000 && entry->matrix[1][1] == 0x1000 && entry->matrix[2][2] == 0x1000 && entry->matrix[0][1] == 0 && entry->matrix[0][2] == 0);
 		s32 tLights = (sdata != NULL && sdata->gGT != NULL) ? sdata->gGT->trafficLightsTimer : 0;
 
-		// Set authoritative 3D orientation directly from host matrix
-		if ((entry->matrix[0][0] != 0 || entry->matrix[1][1] != 0 || entry->matrix[2][2] != 0) && (!isIdentity || tLights <= 0))
+		// Set authoritative 3D orientation directly from host matrix (unless local player is spinning/blasted)
+		if (!isLocal || (d->kartState != KS_SPINNING && d->kartState != KS_BLASTED))
 		{
-			memcpy(inst->matrix.m, entry->matrix, sizeof(inst->matrix.m));
-			memcpy(d->matrixFacingDir.m, entry->matrix, sizeof(d->matrixFacingDir.m));
-		}
-		else
-		{
-			s16 norm[3] = {0, 0x1000, 0};
-			if (d->AxisAngle2_normalVec.y != 0)
+			if ((entry->matrix[0][0] != 0 || entry->matrix[1][1] != 0 || entry->matrix[2][2] != 0) && (!isIdentity || tLights <= 0))
 			{
-				norm[0] = d->AxisAngle2_normalVec.x;
-				norm[1] = d->AxisAngle2_normalVec.y;
-				norm[2] = d->AxisAngle2_normalVec.z;
+				memcpy(inst->matrix.m, entry->matrix, sizeof(inst->matrix.m));
+				memcpy(d->matrixFacingDir.m, entry->matrix, sizeof(d->matrixFacingDir.m));
 			}
-			VehPhysForce_RotAxisAngle(&d->matrixFacingDir, norm, d->rotCurr.y != 0 ? d->rotCurr.y : d->angle);
-			memcpy(inst->matrix.m, d->matrixFacingDir.m, sizeof(inst->matrix.m));
+			else
+			{
+				s16 norm[3] = {0, 0x1000, 0};
+				if (d->AxisAngle2_normalVec.y != 0)
+				{
+					norm[0] = d->AxisAngle2_normalVec.x;
+					norm[1] = d->AxisAngle2_normalVec.y;
+					norm[2] = d->AxisAngle2_normalVec.z;
+				}
+				VehPhysForce_RotAxisAngle(&d->matrixFacingDir, norm, d->rotCurr.y != 0 ? d->rotCurr.y : d->angle);
+				memcpy(inst->matrix.m, d->matrixFacingDir.m, sizeof(inst->matrix.m));
+			}
 		}
 
 		// Set authoritative 3D position
@@ -2771,25 +2880,22 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 		{
 			if ((ct->modelIndex == STATIC_AKUAKU || ct->modelIndex == STATIC_UKAUKA) && ((ct->flags & THREAD_FLAG_DEAD) == 0))
 			{
-				clientHasMask = true;
-				if (!hostHasMask)
+				struct MaskHeadWeapon *mask = (struct MaskHeadWeapon *)ct->object;
+				if (mask != NULL && mask->duration > 0 && ct->funcThTick == RB_MaskWeapon_ThTick)
 				{
-					struct MaskHeadWeapon *mask = (struct MaskHeadWeapon *)ct->object;
-					if (mask != NULL)
-					{
-						mask->duration = 0;
-						if (mask->maskBeamInst != NULL)
-						{
-							INSTANCE_Death(mask->maskBeamInst);
-							mask->maskBeamInst = NULL;
-						}
-					}
-					ct->flags |= THREAD_FLAG_DEAD;
+					clientHasMask = true;
+				}
+				b32 isRescue = (d->kartState == KS_MASK_GRABBED) || (d->kartState == KS_ENGINE_REVVING) ||
+				               (entry->kartState == KS_MASK_GRABBED) || (entry->kartState == KS_ENGINE_REVVING);
+				if (!isRescue && !hostHasMask && mask != NULL && ct->funcThTick == RB_MaskWeapon_ThTick)
+				{
+					mask->duration = 0;
+					ThTick_SetAndExec(ct, RB_MaskWeapon_FadeAway);
 				}
 			}
 		}
 	}
-	if (hostHasMask && !clientHasMask)
+	if (hostHasMask && !clientHasMask && (d->kartState != KS_MASK_GRABBED) && (d->kartState != KS_ENGINE_REVVING))
 	{
 		VehPickupItem_MaskUseWeapon(d, true);
 	}
@@ -2806,7 +2912,7 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 		struct Thread *turboTh = NULL;
 		for (struct Thread *th = gGT->threadBuckets[TURBO].thread; th != NULL; th = th->siblingThread)
 		{
-			if (((struct Turbo *)th->object)->driver == d)
+			if (th->object != NULL && ((struct Turbo *)th->object)->driver == d)
 			{
 				turboTh = th;
 				break;
@@ -2831,6 +2937,20 @@ static void NativeAdhoc_ApplyDriverStateEntry(const struct NativeAdhocDriverStat
 	{
 		if (d->instBubbleHold->thread != NULL)
 		{
+			struct Shield *s = (struct Shield *)d->instBubbleHold->thread->object;
+			if (s != NULL)
+			{
+				if (s->instColor != NULL)
+				{
+					INSTANCE_Death(s->instColor);
+					s->instColor = NULL;
+				}
+				if (s->instHighlight != NULL)
+				{
+					INSTANCE_Death(s->instHighlight);
+					s->instHighlight = NULL;
+				}
+			}
 			d->instBubbleHold->thread->flags |= THREAD_FLAG_DEAD;
 		}
 		d->instBubbleHold = NULL;
@@ -2903,10 +3023,32 @@ static void NativeAdhoc_SendDriverState(const struct GameTracker *gGT)
 			if (th->inst != NULL && th->inst->model != NULL && ((th->flags & THREAD_FLAG_DEAD) == 0) && ((th->inst->flags & HIDE_MODEL) == 0))
 			{
 				u8 mId = (u8)th->inst->model->id;
-				// In OTHER bucket, only replicate projectile weapons (bombs, thrown shields)
-				if (bucketsToScan[b] == OTHER && mId != DYNAMIC_BOMB && mId != DYNAMIC_SHIELD && mId != DYNAMIC_SHIELD_GREEN)
+				if (bucketsToScan[b] == MINE)
 				{
-					continue;
+					struct MineWeapon *mw = (struct MineWeapon *)th->object;
+					extern void RB_TNT_ThTick_SitOnHead(struct Thread *);
+					extern void RB_TNT_ThTick_ThrowOnHead(struct Thread *);
+					extern void RB_TNT_ThTick_ThrowOffHead(struct Thread *);
+					if (th->funcThTick == RB_TNT_ThTick_SitOnHead ||
+					    th->funcThTick == RB_TNT_ThTick_ThrowOnHead ||
+					    th->funcThTick == RB_TNT_ThTick_ThrowOffHead ||
+					    (mw != NULL && mw->driverTarget != NULL))
+					{
+						continue;
+					}
+				}
+				// In OTHER bucket, only replicate projectile weapons (bombs, thrown shields)
+				if (bucketsToScan[b] == OTHER)
+				{
+					if (mId != DYNAMIC_BOMB && mId != DYNAMIC_SHIELD && mId != DYNAMIC_SHIELD_GREEN)
+					{
+						continue;
+					}
+					extern void RB_MovingExplosive_ThTick(struct Thread *);
+					if ((mId == DYNAMIC_SHIELD || mId == DYNAMIC_SHIELD_GREEN) && (th->funcThTick != RB_MovingExplosive_ThTick))
+					{
+						continue;
+					}
 				}
 				struct NativeAdhocWorldItem *item = &packet.items[packet.itemCount++];
 				item->modelID = mId;
@@ -2919,17 +3061,23 @@ static void NativeAdhoc_SendDriverState(const struct GameTracker *gGT)
 		}
 	}
 
-	// Also scan driver child threads for projectiles attached as children (bombs and thrown shields)
-	for (int d = 0; d < 8 && packet.itemCount < NATIVE_ADHOC_MAX_WORLD_ITEMS; d++)
+	// Also scan projectiles spawned as child threads of drivers (bowling bombs, thrown shields)
+	for (int dIdx = 0; dIdx < 8 && packet.itemCount < NATIVE_ADHOC_MAX_WORLD_ITEMS; dIdx++)
 	{
-		if (gGT->drivers[d] != NULL && gGT->drivers[d]->instSelf != NULL && gGT->drivers[d]->instSelf->thread != NULL)
+		const struct Driver *d = gGT->drivers[dIdx];
+		if ((d == NULL) || (d->instSelf == NULL) || (d->instSelf->thread == NULL))
 		{
-			for (struct Thread *th = gGT->drivers[d]->instSelf->thread->childThread; th != NULL && packet.itemCount < NATIVE_ADHOC_MAX_WORLD_ITEMS; th = th->siblingThread)
+			continue;
+		}
+		for (struct Thread *th = d->instSelf->thread->childThread; th != NULL && packet.itemCount < NATIVE_ADHOC_MAX_WORLD_ITEMS; th = th->siblingThread)
+		{
+			if ((th->inst != NULL) && (th->inst->model != NULL) && ((th->flags & THREAD_FLAG_DEAD) == 0) && ((th->inst->flags & HIDE_MODEL) == 0))
 			{
-				if (th->inst != NULL && th->inst->model != NULL && ((th->flags & THREAD_FLAG_DEAD) == 0) && ((th->inst->flags & HIDE_MODEL) == 0))
+				u8 mId = (u8)th->inst->model->id;
+				if (mId == DYNAMIC_BOMB || mId == DYNAMIC_SHIELD || mId == DYNAMIC_SHIELD_GREEN)
 				{
-					u8 mId = (u8)th->inst->model->id;
-					if (mId == DYNAMIC_BOMB || mId == DYNAMIC_SHIELD || mId == DYNAMIC_SHIELD_GREEN)
+					extern void RB_MovingExplosive_ThTick(struct Thread *);
+					if (th->funcThTick == RB_MovingExplosive_ThTick)
 					{
 						struct NativeAdhocWorldItem *item = &packet.items[packet.itemCount++];
 						item->modelID = mId;
@@ -3079,14 +3227,8 @@ static void NativeAdhoc_HandleDriverState(const struct NativeAdhocDriverStatePac
 		{
 			if (th != NULL)
 			{
-				if (th->inst != NULL &&
-				    (th->modelIndex == DYNAMIC_BOMB || th->modelIndex == DYNAMIC_ROCKET || th->modelIndex == DYNAMIC_WARPBALL))
-				{
-					PlaySound3D(th->modelIndex == DYNAMIC_BOMB ? 0x49 : 0x4c, th->inst);
-					RB_Burst_Init(th->inst);
-				}
-				th->flags |= THREAD_FLAG_DEAD;
-				s_clientWorldItemThreads[i] = NULL;
+				NativeAdhoc_DestroyClientWorldItem(i);
+				th = NULL;
 			}
 			if (item->modelID < (u8)len(gGT->modelPtr))
 			{
@@ -3166,19 +3308,7 @@ static void NativeAdhoc_HandleDriverState(const struct NativeAdhocDriverStatePac
 
 	for (u8 i = packet->itemCount; i < NATIVE_ADHOC_MAX_WORLD_ITEMS; i++)
 	{
-		if (s_clientWorldItemThreads[i] != NULL)
-		{
-			if (s_clientWorldItemThreads[i]->inst != NULL &&
-			    (s_clientWorldItemThreads[i]->modelIndex == DYNAMIC_BOMB ||
-			     s_clientWorldItemThreads[i]->modelIndex == DYNAMIC_ROCKET ||
-			     s_clientWorldItemThreads[i]->modelIndex == DYNAMIC_WARPBALL))
-			{
-				PlaySound3D(s_clientWorldItemThreads[i]->modelIndex == DYNAMIC_BOMB ? 0x49 : 0x4c, s_clientWorldItemThreads[i]->inst);
-				RB_Burst_Init(s_clientWorldItemThreads[i]->inst);
-			}
-			s_clientWorldItemThreads[i]->flags |= THREAD_FLAG_DEAD;
-			s_clientWorldItemThreads[i] = NULL;
-		}
+		NativeAdhoc_DestroyClientWorldItem(i);
 	}
 
 	if (!hasWarpball && s_clientWarpballSound != 0)
@@ -4862,12 +4992,7 @@ void NativeAdhoc_NotifyLevelReady(struct GameTracker *gGT)
 	memset(s_nativeAdhoc.hashes, 0, sizeof(s_nativeAdhoc.hashes));
 	s_nativeAdhoc.nextHashSlot = 0;
 	NativeAdhoc_ClearInputRing();
-	memset(s_clientWorldItemThreads, 0, sizeof(s_clientWorldItemThreads));
-	if (s_clientWarpballSound != 0)
-	{
-		OtherFX_RecycleMute(&s_clientWarpballSound);
-		s_clientWarpballSound = 0;
-	}
+	NativeAdhoc_ClearClientWorldItems();
 
 	Platform_Log("[CTR Adhoc] NotifyLevelReady: role=%d, levelID=%d, currLEV=%d, numPlyr=%d\n",
 	             s_nativeAdhoc.role, gGT->levelID, gGT->currLEV, gGT->numPlyrCurrGame);
@@ -5268,19 +5393,20 @@ enum NativeAdhocStatusText
 	NATIVE_ADHOC_TEXT_COUNT,
 };
 
-static const char *s_nativeAdhocStatusText[6][NATIVE_ADHOC_TEXT_COUNT] =
+static const char *s_nativeAdhocStatusText[7][NATIVE_ADHOC_TEXT_COUNT] =
 {
 	{"SYNCING GAME", "MULTIPLAYER", "ROOM: WAITING FOR PLAYER", "SEARCHING ROOM...", "PLAYER CONNECTED!", "CONNECTION ERROR", "MULTIPLAYER"},
 	{"SYNCHRO JEU", "MULTIJOUEUR", "SALLE: ATTENTE JOUEUR", "RECHERCHE SALLE...", "JOUEUR CONNECTE!", "ERREUR CONNEXION", "MULTIJOUEUR"},
 	{"SPIEL SYNCHRO", "MEHRSPIELER", "RAUM: WARTE AUF SPIELER", "SUCHE RAUM...", "SPIELER ONLINE!", "NETZWERKFEHLER", "MEHRSPIELER"},
 	{"SYNC PARTITA", "MULTIGIOCATORE", "STANZA: ATTESA GIOCATORE", "RICERCA STANZA...", "GIOCATORE ONLINE!", "ERRORE RETE", "MULTIGIOCATORE"},
-	{"SINC. JUEGO", "MULTIPLAYER", "SALA: AGUARDANDO JOGADOR", "BUSCANDO SALA...", "JOGADOR CONECTADO!", "ERROR CONEXION", "MULTIPLAYER"},
+	{"SINC. JUEGO", "MULTIPLAYER", "SALA: ESPERANDO JUGADOR", "BUSCANDO SALA...", "JUGADOR CONECTADO!", "ERROR CONEXION", "MULTIPLAYER"},
 	{"SPEL SYNCHRO", "MULTIPLAYER", "KAMER: WACHT OP SPELER", "KAMER ZOEKEN...", "SPELER VERBONDEN!", "VERBINDINGSFOUT", "MULTIPLAYER"},
+	{"SINC. JOGO", "MULTIPLAYER", "SALA: AGUARDANDO JOGADOR", "BUSCANDO SALA...", "JOGADOR CONECTADO!", "ERRO DE CONEXAO", "MULTIPLAYER"},
 };
 
 static int NativeAdhoc_GetStatusLanguageRow(void)
 {
-	if ((cfg_language >= 2) && (cfg_language <= 7))
+	if ((cfg_language >= 2) && (cfg_language <= 8))
 	{
 		return cfg_language - 2;
 	}
@@ -5310,11 +5436,11 @@ const char *NativeAdhoc_GetStatusText(void)
 		}
 		if (s_nativeAdhocNetType == NATIVE_ADHOC_NET_LOCAL)
 		{
-			return (cfg_language == 6) ? "BUSCANDO SALA (REDE LOCAL)..." : "SEARCHING ROOM (LOCAL LAN)...";
+			return (cfg_language == 6 || cfg_language == 8) ? "BUSCANDO SALA (REDE LOCAL)..." : "SEARCHING ROOM (LOCAL LAN)...";
 		}
 		else
 		{
-			return (cfg_language == 6) ? "BUSCANDO SALA (ONLINE)..." : "SEARCHING ROOM (ONLINE)...";
+			return (cfg_language == 6 || cfg_language == 8) ? "BUSCANDO SALA (ONLINE)..." : "SEARCHING ROOM (ONLINE)...";
 		}
 	case NATIVE_ADHOC_STATUS_CONNECTED:
 		if (s_nativeAdhoc.role == NATIVE_ADHOC_ROLE_HOST)

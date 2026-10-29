@@ -45,9 +45,19 @@ void RB_MaskWeapon_FadeAway(struct Thread *t)
 		{
 			LHMatrix_Parent(instCurr, driverInst, &mhs->posOffset);
 
-			instCurr->scale.x += CTR_FRAME_STEP(-0x100, sdata->gGT->timer);
-			instCurr->scale.y += CTR_FRAME_STEP(-0x100, sdata->gGT->timer);
-			instCurr->scale.z += CTR_FRAME_STEP(-0x100, sdata->gGT->timer);
+			s32 step = CTR_FRAME_STEP(-0x100, sdata->gGT->timer);
+			if ((s32)instCurr->scale.x + step <= 0)
+			{
+				instCurr->scale.x = 0;
+				instCurr->scale.y = 0;
+				instCurr->scale.z = 0;
+			}
+			else
+			{
+				instCurr->scale.x += (s16)step;
+				instCurr->scale.y += (s16)step;
+				instCurr->scale.z += (s16)step;
+			}
 		}
 
 		// position offset
@@ -75,7 +85,7 @@ void RB_MaskWeapon_FadeAway(struct Thread *t)
 
 	totalTime = mask->duration;
 
-	if (totalTime < 0x200)
+	if (totalTime < 0x200 && inst->scale.x > 0)
 	{
 		totalTime += sdata->gGT->elapsedTimeMS;
 
@@ -257,6 +267,7 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 	if (mask->duration == 0)
 	{
 		ThTick_SetAndExec(maskTh, RB_MaskWeapon_FadeAway);
+		return;
 	}
 	else
 	{
@@ -316,7 +327,7 @@ void RB_ShieldDark_ThTick_Pop(struct Thread *t)
 	}
 
 	rot.x = 0;
-	rot.y = 0;
+	rot.y = 24;
 	rot.z = 0;
 	LHMatrix_Parent(instDark, driverOwner->instSelf, &rot);
 	LHMatrix_Parent(instColor, driverOwner->instSelf, &rot);
@@ -459,7 +470,11 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 	struct InstDrawPerPlayer *highlightIdpp = INST_GETIDPP(highlightInst);
 
 	// If the driver that used this weapon is visible
+#if defined(CTR_NATIVE)
+	if (player->invisibleTimer == 0 || (NativeAdhoc_IsSimulationActive() && player->driverID == NativeAdhoc_GetLocalPlayerIndex()))
+#else
 	if (player->invisibleTimer == 0)
+#endif
 	{
 		for (i = 0; i < gGT->numPlyrCurrGame && i < 4; i++)
 		{
@@ -470,16 +485,11 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 		}
 	}
 
-	// if driver is not invisible
+	// if driver is invisible
 	else
 	{
 		for (i = 0; i < gGT->numPlyrCurrGame && i < 4; i++)
 		{
-			if (i == player->driverID)
-			{
-				continue;
-			}
-
 			idpp[i].pushBuffer = 0;
 			colorIdpp[i].pushBuffer = 0;
 			highlightIdpp[i].pushBuffer = 0;
@@ -488,7 +498,7 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 
 	SVec3 pos;
 	pos.x = 0;
-	pos.y = 0;
+	pos.y = 24;
 	pos.z = 0;
 
 	// Copy matrix

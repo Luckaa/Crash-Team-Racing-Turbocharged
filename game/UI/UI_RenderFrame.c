@@ -6,7 +6,7 @@
 static int s_nativeAdhocRouletteSoundActive;
 #endif
 
-static const char *s_nativeReplayControlText[6][2] =
+static const char *s_nativeReplayControlText[7][2] =
 {
 	{"* PLAY/PAUSE   [ STEP", "L - SPEED + R"},
 	{"* LIRE/PAUSE   [ PAS", "L - VITESSE + R"},
@@ -14,12 +14,13 @@ static const char *s_nativeReplayControlText[6][2] =
 	{"* PLAY/PAUSA   [ PASSO", "L - VELOCITA + R"},
 	{"* PLAY/PAUSA   [ PASO", "L - VELOCIDAD + R"},
 	{"* PLAY/PAUZE   [ STAP", "L - SNELHEID + R"},
+	{"* PLAY/PAUSA   [ PASSO", "L - VELOCIDADE + R"},
 };
 
 static void UI_RenderFrame_DrawReplayControls(const char *status)
 {
 	int languageRow = 0;
-	if ((cfg_language >= 2) && (cfg_language <= 7))
+	if ((cfg_language >= 2) && (cfg_language <= 8))
 	{
 		languageRow = cfg_language - 2;
 	}
@@ -574,30 +575,13 @@ void UI_RenderFrame_Racing()
 			// If you are in Relic Race, and not in battle mode, and not in time trial
 			if ((partTimeVariable5 & 0x4020020) == 0)
 			{
-				if (((playerStruct->actionsFlagSet & ACTION_RACE_FINISHED) == 0) || ((
-				                                                                        // if numPlyrCurrGame is 2
-				                                                                        numPlyr == '\x02' &&
-
-				                                                                        // AND
-
-				                                                                        // Not Arcade Mode (must be VS or Battle)
-				                                                                        ((partTimeVariable5 & 0x400000) == 0))))
+				if (((playerStruct->actionsFlagSet & ACTION_RACE_FINISHED) != 0) || ((gameMode1 & END_OF_RACE) != 0))
 				{
-					sVar17 = 0;
-					partTimeVariable5 = 0;
+					goto LAB_80053af4;
 				}
-				else
-				{
-					// if numPlyrCurrGame is less than 3
-					if (numPlyr < 3)
-					{
-						goto LAB_80053af4;
-					}
 
-					bVar3 = (FPS_HALF(gGT->timer) & 1) == 0;
-					sVar17 = (u16)bVar3 << 2;
-					partTimeVariable5 = ((u32)bVar3 << 0x12) >> 0x10;
-				}
+				sVar17 = 0;
+				partTimeVariable5 = 0;
 
 				sVar1 = hudStructPtr[UI_HUD_SLOT_RANK].x;
 				sVar2 = hudStructPtr[UI_HUD_SLOT_RANK].y;

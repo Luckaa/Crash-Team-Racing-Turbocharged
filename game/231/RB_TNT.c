@@ -194,6 +194,16 @@ LAB_800ad5f8:
 	// been on top of someone's head
 	numFrames = mw->numFramesOnHead;
 
+#if defined(CTR_NATIVE)
+	// On network clients, do not detonate independently ahead of the authoritative host.
+	// Freeze at the final flashing frame until the host confirms the blast/damage state packet.
+	if (NativeAdhoc_IsClient() && (numFrames >= 0x59))
+	{
+		mw->numFramesOnHead = 0x59;
+		numFrames = 0x59;
+	}
+	else
+#endif
 	// If there is time remaining until TNT blows up,
 	// which takes 0x5a frames, 3 seconds
 	if (numFrames < 0x5a)

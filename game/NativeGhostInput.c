@@ -84,8 +84,8 @@ static const struct NativeGhostReplaySpeed s_nativeGhostReplaySpeeds[NATIVE_GHOS
     {2, 1, "2.00X"},
 };
 
-static const char *s_nativeGhostReplayPausedText[6] = {
-    "PAUSED", "PAUSE", "PAUSE", "PAUSA", "PAUSA", "PAUZE",
+static const char *s_nativeGhostReplayPausedText[7] = {
+    "PAUSED", "PAUSE", "PAUSE", "PAUSA", "PAUSA", "PAUZE", "PAUSA",
 };
 static char s_nativeGhostReplayStatusText[32];
 
@@ -266,7 +266,7 @@ const char *NativeGhostInput_GetReplayControlStatus(void)
     }
 
     int languageRow = 0;
-    if ((cfg_language >= 2) && (cfg_language <= 7))
+    if ((cfg_language >= 2) && (cfg_language <= 8))
     {
         languageRow = cfg_language - 2;
     }

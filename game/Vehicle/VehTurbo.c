@@ -117,12 +117,28 @@ void VehTurbo_ProcessBucket(struct Thread *turboThread)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80069370-0x800693c8.
 void VehTurbo_ThDestroy(struct Thread *t)
 {
+	if (t == NULL || t->object == NULL)
+	{
+		return;
+	}
+
 	struct Turbo *turboObj = t->object;
 	struct Driver *d = turboObj->driver;
-	d->actionsFlagSet &= ~ACTION_TURBO_ITEM;
+	if (d != NULL)
+	{
+		d->actionsFlagSet &= ~ACTION_TURBO_ITEM;
+	}
 
-	INSTANCE_Death(turboObj->inst);
-	INSTANCE_Death(t->inst);
+	if (turboObj->inst != NULL)
+	{
+		INSTANCE_Death(turboObj->inst);
+		turboObj->inst = NULL;
+	}
+	if (t->inst != NULL)
+	{
+		INSTANCE_Death(t->inst);
+		t->inst = NULL;
+	}
 }
 
 static void VehTurbo_TransformOffset(struct Instance *driverInst, s16 x, s16 y, s16 z, s32 *out)
@@ -142,8 +158,18 @@ void VehTurbo_ThTick(struct Thread *turboThread)
 {
 	struct GameTracker *gGT = sdata->gGT;
 
+	if (turboThread == NULL || turboThread->object == NULL || turboThread->inst == NULL)
+	{
+		return;
+	}
+
 	struct Turbo *turbo = (struct Turbo *)turboThread->object;
 	struct Driver *driver = turbo->driver;
+	if (driver == NULL || driver->instSelf == NULL || turbo->inst == NULL)
+	{
+		return;
+	}
+
 	struct Instance *instance = turboThread->inst;
 	struct Instance *instanceDriver = driver->instSelf;
 

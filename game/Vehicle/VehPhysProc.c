@@ -516,11 +516,19 @@ void VehPhysProc_Driving_PhysLinear(struct Thread *thread, struct Driver *driver
 	while (driverItemThread != 0)
 	{
 		// If thread->modelIndex is Aku or Uka
-		if ((driverItemThread->modelIndex == STATIC_UKAUKA) || (driverItemThread->modelIndex == STATIC_AKUAKU))
+		if (((driverItemThread->modelIndex == STATIC_UKAUKA) || (driverItemThread->modelIndex == STATIC_AKUAKU)) &&
+		    ((driverItemThread->flags & THREAD_FLAG_DEAD) == 0) &&
+		    (driverItemThread->funcThTick == RB_MaskWeapon_ThTick))
 		{
-			// driver is using mask weapon
-			actionsFlagSetCopy = actionsFlagSetNext | ACTION_MASK_WEAPON;
-			break;
+			struct MaskHeadWeapon *m = (struct MaskHeadWeapon *)driverItemThread->object;
+			if (m != NULL && m->duration > 0 &&
+			    (driver->kartState != KS_MASK_GRABBED) &&
+			    (driver->kartState != KS_ENGINE_REVVING))
+			{
+				// driver is using mask weapon
+				actionsFlagSetCopy = actionsFlagSetNext | ACTION_MASK_WEAPON;
+				break;
+			}
 		}
 
 		// check next player in linked list
@@ -1298,6 +1306,26 @@ void VehPhysProc_Driving_Init(struct Thread *t, struct Driver *d)
 		if (((gGT->gameMode1 & BATTLE_MODE) != 0) && (d->kartState == KS_BLASTED))
 		{
 			d->invincibleTimer = VEH_PHYS_PROC_BATTLE_BLASTED_INVINCIBLE_TIMER;
+		}
+
+		if (d->kartState == KS_MASK_GRABBED || d->kartState == KS_ENGINE_REVVING)
+		{
+			if (d->instSelf != NULL && d->instSelf->thread != NULL)
+			{
+				for (struct Thread *ct = d->instSelf->thread->childThread; ct != NULL; ct = ct->siblingThread)
+				{
+					if (ct->modelIndex == STATIC_AKUAKU || ct->modelIndex == STATIC_UKAUKA)
+					{
+						struct MaskHeadWeapon *m = (struct MaskHeadWeapon *)ct->object;
+						if (m != NULL && ct->funcThTick == RB_MaskWeapon_ThTick)
+						{
+							m->duration = 0;
+							ThTick_SetAndExec(ct, RB_MaskWeapon_FadeAway);
+						}
+					}
+				}
+			}
+			d->actionsFlagSet &= ~ACTION_MASK_WEAPON;
 		}
 
 		// must put this HERE, so that
@@ -2376,27 +2404,12 @@ void VehPhysProc_SlamWall_Init(struct Thread *t, struct Driver *d)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80063cf4-0x80063d44.
 void VehPhysProc_SpinFirst_Update(struct Thread *t, struct Driver *d)
 {
-	int speedApprox;
-
-	// cooldown after the spinning started
+	// Keep spinning until NoInputTimer expires so spin animation always plays completely
 	if (d->NoInputTimer != 0)
 	{
-		// absolute value
-		speedApprox = d->speedApprox;
-		if (speedApprox < 0)
-		{
-			speedApprox = CTR_MipsNegLo(speedApprox);
-		}
-
-		// quit if moving quickly
-		if (speedApprox > VEH_PHYS_PROC_SPIN_SLOW_SPEED_THRESHOLD)
-		{
-			return;
-		}
+		return;
 	}
 
-	// if speed has slown to near-halt,
-	// or if NoInputTimer ran out
 	VehPhysProc_SpinLast_Init(t, d);
 }
 
@@ -2519,6 +2532,7 @@ void VehPhysProc_SpinFirst_Init(struct Thread *t, struct Driver *d)
 		d->KartStates.Spinning.spinDir = -1;
 		d->KartStates.Spinning.driftSpinRate = -VEH_PHYS_PROC_SPIN_INITIAL_RATE;
 	}
+	d->rotationSpinRate = d->KartStates.Spinning.driftSpinRate;
 
 	if ((s8)d->simpTurnState < 1)
 	{

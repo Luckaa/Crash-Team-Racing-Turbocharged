@@ -40,6 +40,13 @@ void RB_MovingExplosive_ThTick(struct Thread *t)
 	tw = t->object;
 	tw->timeAlive += gGT->elapsedTimeMS;
 
+	// Thrown shields expire after 3.5 seconds if they don't hit anything
+	if ((modelID == DYNAMIC_SHIELD || modelID == DYNAMIC_SHIELD_GREEN) && tw->timeAlive >= 3500)
+	{
+		RB_MovingExplosive_Explode(t, inst, tw);
+		return;
+	}
+
 	// NOTE(aalhendi): Retail starts/updates the bomb, missile, and shield loop SFX here.
 	if (modelID == DYNAMIC_ROCKET)
 	{
@@ -466,6 +473,12 @@ void RB_MovingExplosive_Explode(struct Thread *t, struct Instance *inst, struct 
 		{
 			tw->driverParent->instBombThrow = NULL;
 		}
+	}
+
+	// shield (blue or green)
+	else if (inst->model->id == DYNAMIC_SHIELD || inst->model->id == DYNAMIC_SHIELD_GREEN)
+	{
+		soundId = 0x58;
 	}
 
 	// missile

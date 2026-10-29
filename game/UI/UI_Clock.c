@@ -437,7 +437,10 @@ void UI_DrawRaceClock(u16 labelPosX, u16 labelPosY, u32 flags, struct Driver *dr
 		{
 			if ((numLaps <= (int)lapIndex) && (numLaps < gGT->numLaps))
 			{
-				UI_SaveLapTime(lapIndex, gGT->elapsedEventTime - driver->lapTime, (u32)driver->driverID);
+				if (((flags & UI_RACE_CLOCK_SHOW_RESULTS) == 0) && (numLaps == (int)lapIndex))
+				{
+					UI_SaveLapTime(lapIndex, gGT->elapsedEventTime - driver->lapTime, (u32)driver->driverID);
+				}
 
 #if defined(CTR_NATIVE)
 				UI_NativeLapTime_Format(rdata.s_timeString_empty, UI_NativeLapTime_Get(numLaps, driver->driverID));

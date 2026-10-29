@@ -13,6 +13,7 @@ enum
 	MM_CUSTOM_CUPS_LANGUAGE_ITALIAN,
 	MM_CUSTOM_CUPS_LANGUAGE_SPANISH,
 	MM_CUSTOM_CUPS_LANGUAGE_DUTCH,
+	MM_CUSTOM_CUPS_LANGUAGE_PORTUGUESE,
 	MM_CUSTOM_CUPS_LANGUAGE_COUNT,
 };
 
@@ -31,6 +32,7 @@ static const struct MMCupSelectCustomCupsText s_customCupsText[MM_CUSTOM_CUPS_LA
 	{"SELECT: COPPE PERSONALIZZATE", "D-PAD: CAMBIA PISTE", "R1: RANDOMIZZA PISTE"},
 	{"SELECT: COPAS PERSONALIZADAS", "CRUCETA: CAMBIAR PISTAS", "R1: PISTAS ALEATORIAS"},
 	{"SELECT: AANGEPASTE BEKERS", "D-PAD: BANEN WIJZIGEN", "R1: WILLEKEURIGE BANEN"},
+	{"SELECT: COPAS PERSONALIZADAS", "DIRECIONAL: MUDAR PISTAS", "R1: PISTAS ALEATORIAS"},
 };
 
 #if defined(CTR_NATIVE)
@@ -41,7 +43,7 @@ static const struct MMCupSelectCustomCupsText *MM_CupSelect_CustomCups_GetText(v
 	int language = MM_CUSTOM_CUPS_LANGUAGE_ENGLISH;
 
 #if defined(CTR_NATIVE)
-	if ((cfg_language >= 2) && (cfg_language <= 7))
+	if ((cfg_language >= 2) && (cfg_language <= 8))
 	{
 		language = cfg_language - 2;
 	}

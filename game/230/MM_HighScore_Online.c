@@ -44,7 +44,7 @@ static char s_onlineGhostNickname[NATIVE_LEADERBOARD_NICKNAME_SIZE];
 
 static const char *MM_HighScore_OnlineSwapCategoryText(void)
 {
-    static const char *text[6] =
+    static const char *text[7] =
     {
         "PRESS L / R: CHANGE CATEGORY",
         "L / R : CHANGER DE CATEGORIE",
@@ -52,10 +52,11 @@ static const char *MM_HighScore_OnlineSwapCategoryText(void)
         "PREMI L / R: CAMBIA CATEGORIA",
         "PULSA L / R: CAMBIA CATEGORIA",
         "DRUK L / R: WISSEL CATEGORIE",
+        "PRESSIONE L / R: MUDAR CATEGORIA",
     };
 
     int languageRow = 0;
-    if ((cfg_language >= 2) && (cfg_language <= 7))
+    if ((cfg_language >= 2) && (cfg_language <= 8))
     {
         languageRow = cfg_language - 2;
     }

@@ -23,10 +23,12 @@ int gNativeOnlineLeaderboardMode;
 
 enum MMNativeLanguageConstants
 {
-	MM_NATIVE_LANGUAGE_COUNT = 6,
+	MM_NATIVE_LANGUAGE_COUNT = 7,
 	MM_NATIVE_LANGUAGE_TIMEOUT_FRAMES = CTR_SECONDS_TO_FRAMES(30),
 	MM_NATIVE_LANGUAGE_DRAWSTYLE_WIDESCREEN = 0x200,
 };
+
+#define NATIVE_LANG_PORTUGUESE 8
 
 static const s16 s_nativeLanguageFileIndex[MM_NATIVE_LANGUAGE_COUNT] =
 {
@@ -36,6 +38,7 @@ static const s16 s_nativeLanguageFileIndex[MM_NATIVE_LANGUAGE_COUNT] =
 	5, // Italian
 	6, // Spanish
 	7, // Dutch
+	NATIVE_LANG_PORTUGUESE, // Portuguese
 };
 
 
@@ -72,10 +75,12 @@ static const char *s_nativeAdhocNetLocalText[MM_NATIVE_LANGUAGE_COUNT] =
 	"LAN",
 	"LAN",
 	"LAN",
+	"LAN",
 };
 
 static const char *s_nativeAdhocNetOnlineText[MM_NATIVE_LANGUAGE_COUNT] =
 {
+	"ONLINE",
 	"ONLINE",
 	"ONLINE",
 	"ONLINE",
@@ -90,8 +95,9 @@ static const char *s_nativeAdhocHostText[MM_NATIVE_LANGUAGE_COUNT] =
 	"CREER SALLE",
 	"RAUM ERSTELLEN",
 	"CREA STANZA",
-	"CRIAR SALA (HOST)",
+	"CREAR SALA",
 	"KAMER MAKEN",
+	"CRIAR SALA (HOST)",
 };
 
 static const char *s_nativeAdhocJoinText[MM_NATIVE_LANGUAGE_COUNT] =
@@ -100,8 +106,9 @@ static const char *s_nativeAdhocJoinText[MM_NATIVE_LANGUAGE_COUNT] =
 	"REJOINDRE",
 	"BEITRETEN",
 	"UNISCITI",
-	"ENTRAR NA SALA",
+	"UNIRSE",
 	"DEELNEMEN",
+	"ENTRAR NA SALA",
 };
 
 static s16 s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_MAIN;
@@ -130,12 +137,13 @@ static struct RectMenu s_nativeExtraDifficultyMenu =
 
 static struct MenuRow s_nativeLanguageRows[MM_NATIVE_LANGUAGE_COUNT + 1] =
 {
-	{LNG_ENGLISH, 5, 1, 0, 0},
+	{LNG_ENGLISH, 6, 1, 0, 0},
 	{LNG_FRENCH, 0, 2, 1, 1},
 	{LNG_GERMAN, 1, 3, 2, 2},
 	{LNG_ITALIAN, 2, 4, 3, 3},
 	{LNG_SPANISH, 3, 5, 4, 4},
-	{LNG_DUTCH, 4, 0, 5, 5},
+	{LNG_DUTCH, 4, 6, 5, 5},
+	{NATIVE_MENU_STRING_PORTUGUESE, 5, 0, 6, 6},
 	{.stringIndex = RECTMENU_STRING_NONE},
 };
 
@@ -889,7 +897,7 @@ static void MM_NativeApplyPreset(int preset)
 #endif
 }
 
-static const char *const s_nativePresetBlurb[6][4][4] =
+static const char *const s_nativePresetBlurb[7][4][4] =
 {
 	{
 		{"THE ORIGINAL PS1 EXPERIENCE", "30 FPS, 15-BIT COLOUR, DITHERING", "RETAIL AI, ENGINES AND UNLOCKS", "NO ENHANCEMENTS"},
@@ -927,9 +935,15 @@ static const char *const s_nativePresetBlurb[6][4][4] =
 		{"ALLES VAN VANILLA+ EN MEER", "NATIEVE 3D-RENDERER, HD-PAUZESCHERM", "MODERNE MINIKAART, EIGEN FONT, HUD-ICONEN", "UITGEBREIDE AI-RACERS"},
 		{"STEL ALLES ZELF IN", "BEGINT MET DE VANILLA+-INSTELLINGEN", "OPENT HET OPTIESMENU", ""},
 	},
+	{
+		{"A EXPERIENCIA ORIGINAL DE PS1", "30 FPS, CORES 15-BIT, DITHERING", "IA, MOTORES E DESBLOQUEIOS ORIGINAIS", "SEM MELHORIAS"},
+		{"O VISUAL ORIGINAL, MODERNIZADO", "CORES 24-BIT, PGXP, 60 FPS, FXAA", "DETALHES MAXIMOS, BUFFER DE PROFUNDIDADE", "ESCOLHA DE MOTOR, DESBLOQUEIOS, COLISOES SUAVES"},
+		{"TUDO DO VANILLA+ E MUITO MAIS", "RENDERIZADOR 3D NATIVO, PAUSA HD FLUIDA", "MINIMAPA MODERNO, FONTE PROPRIA, ICONES HUD", "PILOTOS IA EXPANDIDOS"},
+		{"CONFIGURE TUDO VOCE MESMO", "INICIA A PARTIR DAS CONFIGURACOES VANILLA+", "ABRE O MENU DE OPCOES", ""},
+	},
 };
 
-static const char *const s_nativePresetHeader[6] =
+static const char *const s_nativePresetHeader[7] =
 {
 	"CHOOSE YOUR EXPERIENCE",
 	"CHOISISSEZ VOTRE EXPERIENCE",
@@ -937,9 +951,10 @@ static const char *const s_nativePresetHeader[6] =
 	"SCEGLI LA TUA ESPERIENZA",
 	"ELIGE TU EXPERIENCIA",
 	"KIES JE BELEVING",
+	"ESCOLHA SUA EXPERIENCIA",
 };
 
-static const char *const s_nativePresetFooter[6][4] =
+static const char *const s_nativePresetFooter[7][4] =
 {
 	{"EVERY FEATURE CAN BE TOGGLED INDIVIDUALLY", "FROM THE OPTIONS MENU AT ANY TIME", "I RECOMMEND TRYING THEM ALL TO FIND", "A COMBO THAT SUITS YOU"},
 	{"CHAQUE FONCTION PEUT ETRE ACTIVEE", "INDIVIDUELLEMENT DANS LES OPTIONS", "JE VOUS RECOMMANDE DE TOUT ESSAYER POUR", "TROUVER LA COMBINAISON QUI VOUS CONVIENT"},
@@ -947,6 +962,7 @@ static const char *const s_nativePresetFooter[6][4] =
 	{"OGNI FUNZIONE PUO ESSERE ATTIVATA SINGOLARMENTE", "DAL MENU OPZIONI IN QUALSIASI MOMENTO", "TI CONSIGLIO DI PROVARLE TUTTE PER TROVARE", "LA COMBINAZIONE GIUSTA PER TE"},
 	{"CADA FUNCION SE PUEDE ACTIVAR POR SEPARADO", "DESDE EL MENU DE OPCIONES EN CUALQUIER MOMENTO", "TE RECOMIENDO PROBARLAS TODAS PARA ENCONTRAR", "LA COMBINACION QUE MEJOR TE VAYA"},
 	{"ELKE FUNCTIE KAN OP ELK MOMENT APART", "IN HET OPTIESMENU WORDEN AAN- OF UITGEZET", "IK RAAD AAN ALLES UIT TE PROBEREN OM", "DE COMBINATIE TE VINDEN DIE BIJ JE PAST"},
+	{"CADA OPCAO PODE SER ALTERADA", "NO MENU DE OPCOES A QUALQUER MOMENTO", "RECOMENDO TESTAR TODAS PARA ENCONTRAR", "A COMBINACAO IDEAL PARA VOCE"},
 };
 
 static void MM_NativePresetMenuProc(struct RectMenu *menu)
@@ -954,7 +970,7 @@ static void MM_NativePresetMenuProc(struct RectMenu *menu)
 	if (menu->funcState == RECTMENU_FUNC_STATE_DRAW)
 	{
 		int row = (menu->rowSelected >= 0) && (menu->rowSelected < 4) ? menu->rowSelected : 0;
-		int lang = ((cfg_language >= 2) && (cfg_language <= 7)) ? cfg_language - 2 : 0;
+		int lang = ((cfg_language >= 2) && (cfg_language <= 8)) ? cfg_language - 2 : 0;
 		DecalFont_DrawLine((char *)s_nativePresetHeader[lang], 0x100, 24, FONT_BIG, JUSTIFY_CENTER | ORANGE);
 		DecalFont_DrawLine((char *)s_nativePresetBlurb[lang][row][0], 0x100, 150, FONT_SMALL, JUSTIFY_CENTER | ORANGE);
 		for (int i = 1; i < 4; i++)
@@ -1113,7 +1129,7 @@ static void MM_NativeLanguageMainMenuProc(struct RectMenu *menu)
 #if defined(CTR_NATIVE)
 static s16 MM_NativeAdhocLanguageRow(void)
 {
-	if ((cfg_language >= 2) && (cfg_language <= 7))
+	if ((cfg_language >= 2) && (cfg_language <= 8))
 	{
 		return (s16)(cfg_language - 2);
 	}
@@ -1419,31 +1435,21 @@ void MM_NativeAdhocReturnToRole(void)
 	s_nativeAdhocCodeMenu.ptrPrevBox_InHierarchy = NULL;
 	s_nativeAdhocCodeMenu.rowSelected = 0;
 
-	if (s_nativeAdhocNetChoice == NATIVE_ADHOC_NET_ONLINE)
-	{
-		s_nativeAdhocModeMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
-		s_nativeAdhocModeMenu.ptrNextBox_InHierarchy = NULL;
-		s_nativeAdhocModeMenu.ptrPrevBox_InHierarchy = NULL;
+	s_nativeAdhocModeMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+	s_nativeAdhocModeMenu.ptrNextBox_InHierarchy = NULL;
+	s_nativeAdhocModeMenu.ptrPrevBox_InHierarchy = NULL;
 
-		s_nativeAdhocOnlineMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
-		s_nativeAdhocOnlineMenu.ptrNextBox_InHierarchy = NULL;
-		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_ONLINE_MENU;
-		sdata->activeSubMenu = &s_nativeAdhocOnlineMenu;
-	}
-	else
-	{
-		s_nativeAdhocModeMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
-		s_nativeAdhocModeMenu.ptrNextBox_InHierarchy = NULL;
-		s_nativeAdhocModeMenu.ptrPrevBox_InHierarchy = NULL;
+	s_nativeAdhocOnlineMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+	s_nativeAdhocOnlineMenu.ptrNextBox_InHierarchy = NULL;
+	s_nativeAdhocOnlineMenu.ptrPrevBox_InHierarchy = NULL;
 
-		s_nativeAdhocRoleMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
-		s_nativeAdhocRoleMenu.ptrNextBox_InHierarchy = NULL;
-		s_nativeAdhocRoleMenu.ptrPrevBox_InHierarchy = &s_nativeAdhocNetMenu;
-		s_nativeAdhocNetMenu.ptrNextBox_InHierarchy = &s_nativeAdhocRoleMenu;
-		s_nativeAdhocNetMenu.state |= ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY;
-		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_ROLE;
-		sdata->activeSubMenu = &s_nativeAdhocRoleMenu;
-	}
+	s_nativeAdhocRoleMenu.state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+	s_nativeAdhocRoleMenu.ptrNextBox_InHierarchy = NULL;
+	s_nativeAdhocRoleMenu.ptrPrevBox_InHierarchy = &D230.menuMainMenu;
+	D230.menuMainMenu.ptrNextBox_InHierarchy = &s_nativeAdhocRoleMenu;
+	D230.menuMainMenu.state |= ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY;
+	s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_ROLE;
+	sdata->activeSubMenu = &s_nativeAdhocRoleMenu;
 
 	sdata->ptrDesiredMenu = &D230.menuMainMenu;
 	MM_NativeAdhocApplyText();
@@ -1878,7 +1884,7 @@ static void MM_NativeAdhocRoleProc(struct RectMenu *menu)
 
 	if (menu->rowSelected < 0)
 	{
-		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_NET;
+		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_MAIN;
 		MM_NativeAdhocApplyText();
 		if (menu->ptrPrevBox_InHierarchy != NULL)
 		{
@@ -3306,12 +3312,12 @@ void MM_MenuProc_Main(struct RectMenu *mainMenu)
 		s_nativeAdhocNetChoice = NATIVE_ADHOC_NET_LOCAL;
 		NativeAdhoc_SetNetType(NATIVE_ADHOC_NET_LOCAL);
 		s_nativeAdhocGameMode = NATIVE_ADHOC_GAME_MODE_ARCADE;
-		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_NET;
+		s_nativeAdhocMenuStage = MM_NATIVE_ADHOC_STAGE_ROLE;
 		MM_NativeAdhocApplyText();
-		s_nativeAdhocNetMenu.rowSelected = 0;
-		s_nativeAdhocNetMenu.ptrPrevBox_InHierarchy = mainMenu;
+		s_nativeAdhocRoleMenu.rowSelected = 0;
+		s_nativeAdhocRoleMenu.ptrPrevBox_InHierarchy = mainMenu;
 
-		mainMenu->ptrNextBox_InHierarchy = &s_nativeAdhocNetMenu;
+		mainMenu->ptrNextBox_InHierarchy = &s_nativeAdhocRoleMenu;
 		mainMenu->state |= DRAW_NEXT_MENU_IN_HIERARCHY;
 		return;
 	}

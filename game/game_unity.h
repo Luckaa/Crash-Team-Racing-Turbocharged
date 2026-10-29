@@ -66,6 +66,7 @@
 #if defined(CTR_NATIVE)
 #include "NativeReverseTrack.c"
 #include "NativeAutoSave.c"
+#include "NativePortuguese.c"
 #endif
 
 #include "NativeEngine.c"

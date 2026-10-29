@@ -658,27 +658,6 @@ void VehStuckProc_MaskGrab_Init(struct Thread *t, struct Driver *d)
 
 	d->actionsFlagSet &= ~(ACTION_AIRBORNE | ACTION_HIGH_JUMP | ACTION_MASK_WEAPON);
 
-	if (t != NULL && t->childThread != NULL)
-	{
-		for (struct Thread *ct = t->childThread; ct != NULL; ct = ct->siblingThread)
-		{
-			if (ct->modelIndex == STATIC_AKUAKU || ct->modelIndex == STATIC_UKAUKA)
-			{
-				struct MaskHeadWeapon *m = (struct MaskHeadWeapon *)ct->object;
-				if (m != NULL)
-				{
-					m->duration = 0;
-					if (m->maskBeamInst != NULL)
-					{
-						INSTANCE_Death(m->maskBeamInst);
-						m->maskBeamInst = NULL;
-					}
-				}
-				ct->flags |= THREAD_FLAG_DEAD;
-			}
-		}
-	}
-
 	d->KartStates.MaskGrab.maskObj = VehPickupItem_MaskUseWeapon(d, true);
 
 	d->matrixArray = BAKED_GTE_MATRIX_NONE;

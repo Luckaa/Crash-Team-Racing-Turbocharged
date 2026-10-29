@@ -11,8 +11,8 @@
 const char *MM_NativeAdhocGetCodeDisplayText(void);
 
 
-// Translations for the native menu rows. Language order matches the retail menus: EN, FR, DE, IT, ES, NL.
-static const char *const s_txtOn[6] =
+// Translations for the native menu rows. Language order matches the retail menus: EN, FR, DE, IT, ES, NL, PT.
+static const char *const s_txtOn[7] =
 {
 	"ON",
 	"OUI",
@@ -20,8 +20,9 @@ static const char *const s_txtOn[6] =
 	"SI",
 	"SI",
 	"AAN",
+	"LIGADO",
 };
-static const char *const s_txtOff[6] =
+static const char *const s_txtOff[7] =
 {
 	"OFF",
 	"NON",
@@ -29,8 +30,9 @@ static const char *const s_txtOff[6] =
 	"NO",
 	"NO",
 	"UIT",
+	"DESLIGADO",
 };
-static const char *const s_txtOriginal[6] =
+static const char *const s_txtOriginal[7] =
 {
 	"ORIGINAL",
 	"ORIGINE",
@@ -38,8 +40,9 @@ static const char *const s_txtOriginal[6] =
 	"ORIGINALE",
 	"ORIGINAL",
 	"ORIGINEEL",
+	"ORIGINAL",
 };
-static const char *const s_txtSmoothed[6] =
+static const char *const s_txtSmoothed[7] =
 {
 	"SMOOTHED",
 	"LISSE",
@@ -47,8 +50,9 @@ static const char *const s_txtSmoothed[6] =
 	"FLUIDO",
 	"SUAVIZADO",
 	"GEGLAD",
+	"SUAVIZADO",
 };
-static const char *const s_txtDisplay[6] =
+static const char *const s_txtDisplay[7] =
 {
 	"DISPLAY",
 	"AFFICHAGE",
@@ -56,8 +60,9 @@ static const char *const s_txtDisplay[6] =
 	"SCHERMO",
 	"PANTALLA",
 	"WEERGAVE",
+	"TELA",
 };
-static const char *const s_txtAspectRatio[6] =
+static const char *const s_txtAspectRatio[7] =
 {
 	"ASPECT RATIO",
 	"FORMAT D'ECRAN",
@@ -65,8 +70,9 @@ static const char *const s_txtAspectRatio[6] =
 	"FORMATO SCHERMO",
 	"FORMATO DE PANTALLA",
 	"BEELDVERHOUDING",
+	"FORMATO DE TELA",
 };
-static const char *const s_txtFieldOfView[6] =
+static const char *const s_txtFieldOfView[7] =
 {
 	"VERTICAL FOV",
 	"FOV VERTICAL",
@@ -74,8 +80,9 @@ static const char *const s_txtFieldOfView[6] =
 	"FOV VERTICALE",
 	"FOV VERTICAL",
 	"VERTICALE FOV",
+	"FOV VERTICAL",
 };
-static const char *const s_txtProjection[6] =
+static const char *const s_txtProjection[7] =
 {
 	"PROJECTION",
 	"PROJECTION",
@@ -83,8 +90,9 @@ static const char *const s_txtProjection[6] =
 	"PROIEZIONE",
 	"PROYECCION",
 	"PROJECTIE",
+	"PROJECAO",
 };
-static const char *const s_txtProjectionStrength[6] =
+static const char *const s_txtProjectionStrength[7] =
 {
 	"PROJECTION STRENGTH",
 	"FORCE DE PROJECTION",
@@ -92,8 +100,9 @@ static const char *const s_txtProjectionStrength[6] =
 	"INTENSITA PROIEZIONE",
 	"FUERZA DE PROYECCION",
 	"PROJECTIESTERKTE",
+	"FORCA DA PROJECAO",
 };
-static const char *const s_txtWindowed[6] =
+static const char *const s_txtWindowed[7] =
 {
 	"WINDOWED",
 	"FENETRE",
@@ -101,8 +110,9 @@ static const char *const s_txtWindowed[6] =
 	"FINESTRA",
 	"VENTANA",
 	"VENSTER",
+	"JANELA",
 };
-static const char *const s_txtBorderless[6] =
+static const char *const s_txtBorderless[7] =
 {
 	"BORDERLESS",
 	"SANS BORDURE",
@@ -110,8 +120,9 @@ static const char *const s_txtBorderless[6] =
 	"SENZA BORDI",
 	"SIN BORDES",
 	"RANDLOOS",
+	"SEM BORDAS",
 };
-static const char *const s_txtAudio[6] =
+static const char *const s_txtAudio[7] =
 {
 	"AUDIO",
 	"AUDIO",
@@ -119,8 +130,9 @@ static const char *const s_txtAudio[6] =
 	"AUDIO",
 	"AUDIO",
 	"AUDIO",
+	"AUDIO",
 };
-static const char *const s_txtCredits[6] =
+static const char *const s_txtCredits[7] =
 {
 	"CREDITS",
 	"CREDITS",
@@ -128,8 +140,9 @@ static const char *const s_txtCredits[6] =
 	"CREDITI",
 	"CREDITOS",
 	"CREDITS",
+	"CREDITOS",
 };
-static const char *const s_txtGameplay[6] =
+static const char *const s_txtGameplay[7] =
 {
 	"GAMEPLAY",
 	"JEU",
@@ -137,11 +150,12 @@ static const char *const s_txtGameplay[6] =
 	"GIOCO",
 	"JUEGO",
 	"GAMEPLAY",
+	"JOGABILIDADE",
 };
-static const char *const s_txtGraphics[6] = {
-    "GRAPHICS", "GRAPHISMES", "GRAFIK", "GRAFICA", "GRAFICOS", "GRAFISCH",
+static const char *const s_txtGraphics[7] = {
+    "GRAPHICS", "GRAPHISMES", "GRAFIK", "GRAFICA", "GRAFICOS", "GRAFISCH", "GRAFICOS",
 };
-static const char *const s_txtExperimental[6] =
+static const char *const s_txtExperimental[7] =
 {
 	"EXPERIMENTAL",
 	"EXPERIMENTAL",
@@ -149,8 +163,9 @@ static const char *const s_txtExperimental[6] =
 	"SPERIMENTALE",
 	"EXPERIMENTAL",
 	"EXPERIMENTEEL",
+	"EXPERIMENTAL",
 };
-static const char *const s_txtInterface[6] =
+static const char *const s_txtInterface[7] =
 {
 	"INTERFACE",
 	"INTERFACE",
@@ -158,8 +173,9 @@ static const char *const s_txtInterface[6] =
 	"INTERFACCIA",
 	"INTERFAZ",
 	"INTERFACE",
+	"INTERFACE",
 };
-static const char *const s_txtContinue[6] =
+static const char *const s_txtContinue[7] =
 {
 	"CONTINUE",
 	"CONTINUER",
@@ -167,8 +183,9 @@ static const char *const s_txtContinue[6] =
 	"CONTINUA",
 	"CONTINUAR",
 	"DOORGAAN",
+	"CONTINUAR",
 };
-static const char *const s_txtGamepad[6] =
+static const char *const s_txtGamepad[7] =
 {
 	"GAMEPAD / VIBRATION",
 	"MANETTE / VIBRATION",
@@ -176,8 +193,9 @@ static const char *const s_txtGamepad[6] =
 	"GAMEPAD / VIBRAZIONE",
 	"MANDO / VIBRACION",
 	"GAMEPAD / TRILLING",
+	"CONTROLE / VIBRACAO",
 };
-static const char *const s_txtPreset[6] =
+static const char *const s_txtPreset[7] =
 {
 	"SETTINGS PRESET",
 	"PROFIL DE REGLAGES",
@@ -185,8 +203,9 @@ static const char *const s_txtPreset[6] =
 	"PROFILO IMPOSTAZIONI",
 	"PERFIL DE AJUSTES",
 	"INSTELLINGENPROFIEL",
+	"PERFIL DE CONFIGURACOES",
 };
-static const char *const s_txtCustom[6] =
+static const char *const s_txtCustom[7] =
 {
 	"CUSTOM",
 	"PERSONNALISE",
@@ -194,8 +213,9 @@ static const char *const s_txtCustom[6] =
 	"PERSONALIZZATO",
 	"PERSONALIZADO",
 	"AANGEPAST",
+	"PERSONALIZADO",
 };
-static const char *const s_txtSkipMaskHints[6] =
+static const char *const s_txtSkipMaskHints[7] =
 {
 	"SKIP MASK HINTS",
 	"IGNORER CONSEILS MASQUE",
@@ -203,17 +223,18 @@ static const char *const s_txtSkipMaskHints[6] =
 	"SALTA SUGGERIMENTI MASCHERA",
 	"SALTAR CONSEJOS MASCARA",
 	"MASKERTIPS OVERSLAAN",
+	"IGNORAR DICAS DA MASCARA",
 };
-static const char *const s_txtUpdateCheck[6] = {
-    "CHECK FOR UPDATES", "RECHERCHER MISES A JOUR", "NACH UPDATES SUCHEN", "CERCA AGGIORNAMENTI", "BUSCAR ACTUALIZACIONES", "ZOEKEN NAAR UPDATES",
+static const char *const s_txtUpdateCheck[7] = {
+    "CHECK FOR UPDATES", "RECHERCHER MISES A JOUR", "NACH UPDATES SUCHEN", "CERCA AGGIORNAMENTI", "BUSCAR ACTUALIZACIONES", "ZOEKEN NAAR UPDATES", "VERIFICAR ATUALIZACOES",
 };
-static const char *const s_txtClassicDepth[6] = {
-    "DEPTH BUFFER", "TAMPON DE PROFONDEUR", "TIEFENPUFFER", "BUFFER DI PROFONDITA", "BUFFER DE PROFUNDIDAD", "DIEPTEBUFFER",
+static const char *const s_txtClassicDepth[7] = {
+    "DEPTH BUFFER", "TAMPON DE PROFONDEUR", "TIEFENPUFFER", "BUFFER DI PROFONDITA", "BUFFER DE PROFUNDIDAD", "DIEPTEBUFFER", "BUFFER DE PROFUNDIDADE",
 };
-static const char *const s_txtAlwaysOn[6] = {
-    "ALWAYS ON", "TOUJOURS OUI", "IMMER AN", "SEMPRE ATTIVO", "SIEMPRE SI", "ALTIJD AAN",
+static const char *const s_txtAlwaysOn[7] = {
+    "ALWAYS ON", "TOUJOURS OUI", "IMMER AN", "SEMPRE ATTIVO", "SIEMPRE SI", "ALTIJD AAN", "SEMPRE ATIVO",
 };
-static const char *const s_txtClassicPgxp[6] =
+static const char *const s_txtClassicPgxp[7] =
 {
 	"CLASSIC PGXP",
 	"PGXP CLASSIQUE",
@@ -221,8 +242,9 @@ static const char *const s_txtClassicPgxp[6] =
 	"PGXP CLASSICO",
 	"PGXP CLASICO",
 	"KLASSIEKE PGXP",
+	"PGXP CLASSICO",
 };
-static const char *const s_txtPgxpMode[6][NATIVE_PGXP_MODE_COUNT] =
+static const char *const s_txtPgxpMode[7][NATIVE_PGXP_MODE_COUNT] =
 {
 	{"OFF", "GEOMETRY", "PERSPECTIVE"},
 	{"NON", "GEOMETRIE", "PERSPECTIVE"},
@@ -230,8 +252,9 @@ static const char *const s_txtPgxpMode[6][NATIVE_PGXP_MODE_COUNT] =
 	{"NO", "GEOMETRIA", "PROSPETTIVA"},
 	{"NO", "GEOMETRIA", "PERSPECTIVA"},
 	{"UIT", "GEOMETRIE", "PERSPECTIEF"},
+	{"DESLIGADO", "GEOMETRIA", "PERSPECTIVA"},
 };
-static const char *const s_txtRenderer[6] =
+static const char *const s_txtRenderer[7] =
 {
 	"RENDERER",
 	"MOTEUR DE RENDU",
@@ -239,8 +262,9 @@ static const char *const s_txtRenderer[6] =
 	"RENDERER",
 	"RENDERIZADO",
 	"RENDERER",
+	"RENDERIZADOR",
 };
-static const char *const s_txtRendererNative[6] =
+static const char *const s_txtRendererNative[7] =
 {
 	"NATIVE 3D",
 	"3D NATIVE",
@@ -248,8 +272,9 @@ static const char *const s_txtRendererNative[6] =
 	"3D NATIVO",
 	"3D NATIVO",
 	"NATIEF 3D",
+	"3D NATIVO",
 };
-static const char *const s_txtRendererClassic[6] =
+static const char *const s_txtRendererClassic[7] =
 {
 	"CLASSIC",
 	"CLASSIQUE",
@@ -257,8 +282,9 @@ static const char *const s_txtRendererClassic[6] =
 	"CLASSICO",
 	"CLASICO",
 	"KLASSIEK",
+	"CLASSICO",
 };
-static const char *const s_txtColourDepth[6] =
+static const char *const s_txtColourDepth[7] =
 {
 	"COLOUR DEPTH",
 	"PROFONDEUR COULEUR",
@@ -266,11 +292,12 @@ static const char *const s_txtColourDepth[6] =
 	"PROFONDITA COLORE",
 	"PROFUNDIDAD COLOR",
 	"KLEURDIEPTE",
+	"PROFUNDIDADE DE COR",
 };
-static const char *const s_txtResolution[6] = {
-    "RESOLUTION", "RESOLUTION", "AUFLOSUNG", "RISOLUZIONE", "RESOLUCION", "RESOLUTIE",
+static const char *const s_txtResolution[7] = {
+    "RESOLUTION", "RESOLUTION", "AUFLOSUNG", "RISOLUZIONE", "RESOLUCION", "RESOLUTIE", "RESOLUCAO",
 };
-static const char *const s_txtTextures[6] =
+static const char *const s_txtTextures[7] =
 {
 	"TEXTURES",
 	"TEXTURES",
@@ -278,8 +305,9 @@ static const char *const s_txtTextures[6] =
 	"TEXTURE",
 	"TEXTURAS",
 	"TEXTUREN",
+	"TEXTURAS",
 };
-static const char *const s_txtBilinear[6] =
+static const char *const s_txtBilinear[7] =
 {
 	"BILINEAR",
 	"BILINEAIRE",
@@ -287,8 +315,9 @@ static const char *const s_txtBilinear[6] =
 	"BILINEARE",
 	"BILINEAL",
 	"BILINEAIR",
+	"BILINEAR",
 };
-static const char *const s_txtNearest[6] =
+static const char *const s_txtNearest[7] =
 {
 	"NEAREST",
 	"PLUS PROCHE",
@@ -296,8 +325,9 @@ static const char *const s_txtNearest[6] =
 	"PIU VICINO",
 	"MAS CERCANO",
 	"DICHTSTBIJZIJNDE",
+	"MAIS PROXIMO",
 };
-static const char *const s_txtPauseScreen[6] =
+static const char *const s_txtPauseScreen[7] =
 {
 	"PAUSE SCREEN",
 	"ECRAN DE PAUSE",
@@ -305,8 +335,9 @@ static const char *const s_txtPauseScreen[6] =
 	"SCHERMATA PAUSA",
 	"PANTALLA DE PAUSA",
 	"PAUZESCHERM",
+	"TELA DE PAUSA",
 };
-static const char *const s_txtHdSmooth[6] =
+static const char *const s_txtHdSmooth[7] =
 {
 	"HD SMOOTH",
 	"HD FLUIDE",
@@ -314,8 +345,9 @@ static const char *const s_txtHdSmooth[6] =
 	"HD FLUIDO",
 	"HD SUAVE",
 	"HD GEGLAD",
+	"HD FLUIDO",
 };
-static const char *const s_txtPreciseMinimap[6] =
+static const char *const s_txtPreciseMinimap[7] =
 {
 	"PRECISE MINIMAP",
 	"MINI-CARTE PRECISE",
@@ -323,8 +355,9 @@ static const char *const s_txtPreciseMinimap[6] =
 	"MINIMAPPA PRECISA",
 	"MINIMAPA PRECISO",
 	"PRECIEZE MINIKAART",
+	"MINIMAPA PRECISO",
 };
-static const char *const s_txtModernMinimap[6] =
+static const char *const s_txtModernMinimap[7] =
 {
 	"MODERN MINIMAP",
 	"MINI-CARTE MODERNE",
@@ -332,8 +365,9 @@ static const char *const s_txtModernMinimap[6] =
 	"MINIMAPPA MODERNA",
 	"MINIMAPA MODERNO",
 	"MODERNE MINIKAART",
+	"MINIMAPA MODERNO",
 };
-static const char *const s_txtModernHudIcons[6] =
+static const char *const s_txtModernHudIcons[7] =
 {
 	"MODERN HUD ICONS",
 	"ICONES HUD MODERNES",
@@ -341,8 +375,9 @@ static const char *const s_txtModernHudIcons[6] =
 	"ICONE HUD MODERNE",
 	"ICONOS HUD MODERNOS",
 	"MODERNE HUD-ICONEN",
+	"ICONES HUD MODERNOS",
 };
-static const char *const s_txtAdditionalUnlocks[6] =
+static const char *const s_txtAdditionalUnlocks[7] =
 {
 	"ADDITIONAL UNLOCKS",
 	"DEBLOCAGES SUPPL.",
@@ -350,8 +385,9 @@ static const char *const s_txtAdditionalUnlocks[6] =
 	"SBLOCCHI EXTRA",
 	"DESBLOQUEOS EXTRA",
 	"EXTRA UNLOCKS",
+	"DESBLOQUEIOS EXTRAS",
 };
-static const char *const s_txtEngineSelection[6] =
+static const char *const s_txtEngineSelection[7] =
 {
 	"ENGINE SELECTION",
 	"CHOIX DU MOTEUR",
@@ -359,8 +395,9 @@ static const char *const s_txtEngineSelection[6] =
 	"SCELTA MOTORE",
 	"ELECCION DE MOTOR",
 	"MOTORKEUZE",
+	"ESCOLHA DE MOTOR",
 };
-static const char *const s_txtKartHue[6] =
+static const char *const s_txtKartHue[7] =
 {
 	"KART HUE",
 	"TEINTE DU KART",
@@ -368,8 +405,9 @@ static const char *const s_txtKartHue[6] =
 	"TONALITA KART",
 	"TONO DEL KART",
 	"KARTKLEUR",
+	"TONALIDADE DO KART",
 };
-static const char *const s_txtFont[6] =
+static const char *const s_txtFont[7] =
 {
 	"FONT",
 	"POLICE",
@@ -377,8 +415,9 @@ static const char *const s_txtFont[6] =
 	"FONT",
 	"FUENTE",
 	"LETTERTYPE",
+	"FONTE",
 };
-static const char *const s_txtAi[6] =
+static const char *const s_txtAi[7] =
 {
 	"AI",
 	"IA",
@@ -386,8 +425,9 @@ static const char *const s_txtAi[6] =
 	"IA",
 	"IA",
 	"AI",
+	"IA",
 };
-static const char *const s_txtCollisions[6] =
+static const char *const s_txtCollisions[7] =
 {
 	"COLLISIONS",
 	"COLLISIONS",
@@ -395,8 +435,9 @@ static const char *const s_txtCollisions[6] =
 	"COLLISIONI",
 	"COLISIONES",
 	"BOTSINGEN",
+	"COLISOES",
 };
-static const char *const s_txtSteering[6] =
+static const char *const s_txtSteering[7] =
 {
 	"STEERING",
 	"DIRECTION",
@@ -404,8 +445,9 @@ static const char *const s_txtSteering[6] =
 	"STERZO",
 	"DIRECCION",
 	"STUREN",
+	"DIRECAO",
 };
-static const char *const s_txtPlayerPhysics[6] =
+static const char *const s_txtPlayerPhysics[7] =
 {
 	"PLAYER PHYSICS",
 	"PHYSIQUE JOUEUR",
@@ -413,8 +455,9 @@ static const char *const s_txtPlayerPhysics[6] =
 	"FISICA GIOCATORE",
 	"FISICA JUGADOR",
 	"SPELERFYSICA",
+	"FISICA DO JOGADOR",
 };
-static const char *const s_txtCreditsLines[6][8] =
+static const char *const s_txtCreditsLines[7][8] =
 {
 	{"CRASH TEAM RACING BY NAUGHTY DOG", "PUBLISHED BY SONY COMPUTER ENT.", "CTR-MODSDK DEVELOPERS", "CTR-NATIVE DEVELOPERS", "CTR: HIGH OCTANE DEVELOPERS", "MASSIVE THANKS TO ALL OF YOU -", "WITHOUT YOU THIS PROJECT", "WOULD NOT EXIST."},
 	{"CRASH TEAM RACING PAR NAUGHTY DOG", "PUBLIE PAR SONY COMPUTER ENT.", "DEVELOPPEURS DE CTR-MODSDK", "DEVELOPPEURS DE CTR-NATIVE", "DEVELOPPEURS DE CTR: HIGH OCTANE", "UN IMMENSE MERCI A TOUS -", "SANS VOUS, CE PROJET", "N'EXISTERAIT PAS."},
@@ -422,6 +465,7 @@ static const char *const s_txtCreditsLines[6][8] =
 	{"CRASH TEAM RACING DI NAUGHTY DOG", "PUBBLICATO DA SONY COMPUTER ENT.", "SVILUPPATORI DI CTR-MODSDK", "SVILUPPATORI DI CTR-NATIVE", "SVILUPPATORI DI CTR: HIGH OCTANE", "GRAZIE MILLE A TUTTI VOI -", "SENZA DI VOI QUESTO PROGETTO", "NON ESISTEREBBE."},
 	{"CRASH TEAM RACING DE NAUGHTY DOG", "PUBLICADO POR SONY COMPUTER ENT.", "DESARROLLADORES DE CTR-MODSDK", "DESARROLLADORES DE CTR-NATIVE", "DESARROLLADORES DE CTR: HIGH OCTANE", "MUCHISIMAS GRACIAS A TODOS -", "SIN VOSOTROS ESTE PROYECTO", "NO EXISTIRIA."},
 	{"CRASH TEAM RACING VAN NAUGHTY DOG", "UITGEGEVEN DOOR SONY COMPUTER ENT.", "CTR-MODSDK ONTWIKKELAARS", "CTR-NATIVE ONTWIKKELAARS", "CTR: HIGH OCTANE ONTWIKKELAARS", "HARTELIJK DANK AAN JULLIE ALLEMAAL -", "ZONDER JULLIE ZOU DIT PROJECT", "NIET BESTAAN."},
+	{"CRASH TEAM RACING POR NAUGHTY DOG", "PUBLICADO POR SONY COMPUTER ENT.", "DESENVOLVEDORES DE CTR-MODSDK", "DESENVOLVEDORES DE CTR-NATIVE", "DESENVOLVEDORES DE CTR: HIGH OCTANE", "MUITO OBRIGADO A TODOS VOCES -", "SEM VOCES ESTE PROJETO", "NAO EXISTIRIA."},
 };
 
 static char *NativeRow(const char *label, const char *value)
@@ -438,7 +482,7 @@ static char *NativeRow(const char *label, const char *value)
 // what a translator diffs against. clang-format would pack several languages onto one
 // line, so this block is excluded from formatting rather than realigned.
 // clang-format off
-static const char *ghostReplay[6] =
+static const char *ghostReplay[7] =
 {
 	"GHOST REPLAY",
 	"REPLAY FANTOME",
@@ -446,8 +490,9 @@ static const char *ghostReplay[6] =
 	"REPLAY FANTASMA",
 	"REPLAY FANTASMA",
 	"SPOOKREPLAY",
+	"REPLAY DO FANTASMA",
 };
-static const char *mirrorMode[6][2] =
+static const char *mirrorMode[7][2] =
 {
 	{"MIRROR: OFF", "MIRROR: ON"},
 	{"MIROIR: NON", "MIROIR: OUI"},
@@ -455,6 +500,7 @@ static const char *mirrorMode[6][2] =
 	{"SPECCHIO: NO", "SPECCHIO: SI"},
 	{"ESPEJO: NO", "ESPEJO: SI"},
 	{"SPIEGEL: UIT", "SPIEGEL: AAN"},
+	{"ESPELHO: DESL", "ESPELHO: LIG"},
 };
 static const char *frameRate[NATIVE_FRAME_RATE_COUNT] =
 {
@@ -465,7 +511,7 @@ static const char *frameRate[NATIVE_FRAME_RATE_COUNT] =
 	"FPS: 144",
 	"FPS: 240",
 };
-static const char *defaultCamera[6][2] =
+static const char *defaultCamera[7][2] =
 {
 	{"CAMERA: NEAR", "CAMERA: FAR"},
 	{"CAMERA: PROCHE", "CAMERA: LOIN"},
@@ -473,8 +519,9 @@ static const char *defaultCamera[6][2] =
 	{"CAMERA: VICINA", "CAMERA: LONTANA"},
 	{"CAMARA: CERCA", "CAMARA: LEJOS"},
 	{"CAMERA: DICHTBIJ", "CAMERA: VER"},
+	{"CAMERA: PERTO", "CAMERA: LONGE"},
 };
-static const char *defaultHud[6][2] =
+static const char *defaultHud[7][2] =
 {
 	{"HUD: MINIMAP", "HUD: SPEEDOMETER"},
 	{"HUD: MINI-CARTE", "HUD: COMPTEUR"},
@@ -482,8 +529,9 @@ static const char *defaultHud[6][2] =
 	{"HUD: MINIMAPPA", "HUD: TACHIMETRO"},
 	{"HUD: MINIMAPA", "HUD: VELOCIMETRO"},
 	{"HUD: MINIKAART", "HUD: SNELHEID"},
+	{"HUD: MINIMAPA", "HUD: VELOCIMETRO"},
 };
-static const char *aiRacers[6][NATIVE_AI_RACERS_MODE_COUNT] =
+static const char *aiRacers[7][NATIVE_AI_RACERS_MODE_COUNT] =
 {
 	{"AI RACERS: RETAIL", "AI RACERS: EXTENDED", "AI RACERS: EXTENDED+CUSTOM"},
 	{"PILOTES IA: RETAIL", "PILOTES IA: EXTENDED", "PILOTES IA: EXTENDED+CUSTOM"},
@@ -491,6 +539,7 @@ static const char *aiRacers[6][NATIVE_AI_RACERS_MODE_COUNT] =
 	{"PILOTI IA: RETAIL", "PILOTI IA: EXTENDED", "PILOTI IA: EXTENDED+CUSTOM"},
 	{"PILOTOS IA: RETAIL", "PILOTOS IA: EXTENDED", "PILOTOS IA: EXTENDED+CUSTOM"},
 	{"AI RACERS: RETAIL", "AI RACERS: EXTENDED", "AI RACERS: EXTENDED+CUSTOM"},
+	{"PILOTOS IA: PADRAO", "PILOTOS IA: EXPANDIDO", "PILOTOS IA: EXPANDIDO+CUSTOM"},
 };
 #ifndef __vita__
 static const char *antiAliasing[NATIVE_AA_MODE_COUNT] =
@@ -503,7 +552,7 @@ static const char *antiAliasing[NATIVE_AA_MODE_COUNT] =
 	"AA: SSAA 2X",
 	"AA: SSAA 4X",
 };
-static const char *dithering[6][2] =
+static const char *dithering[7][2] =
 {
 	{"DITHER: OFF", "DITHER: ON"},
 	{"TRAMAGE: NON", "TRAMAGE: OUI"},
@@ -511,8 +560,9 @@ static const char *dithering[6][2] =
 	{"DITHER: NO", "DITHER: SI"},
 	{"DITHER: NO", "DITHER: SI"},
 	{"DITHER: UIT", "DITHER: AAN"},
+	{"DITHER: DESL", "DITHER: LIG"},
 };
-static const char *maxLod[6][2] =
+static const char *maxLod[7][2] =
 {
 	{"DETAIL: ORIGINAL", "DETAIL: MAXIMUM"},
 	{"DETAILS: ORIGINE", "DETAILS: MAXIMUM"},
@@ -520,8 +570,9 @@ static const char *maxLod[6][2] =
 	{"DETTAGLI: ORIGINALI", "DETTAGLI: MASSIMI"},
 	{"DETALLE: ORIGINAL", "DETALLE: MAXIMO"},
 	{"DETAILS: ORIGINEEL", "DETAILS: MAXIMAAL"},
+	{"DETALHES: ORIGINAL", "DETALHES: MAXIMO"},
 };
-static const char *const s_txtDetail[6] =
+static const char *const s_txtDetail[7] =
 {
 	"DETAIL",
 	"DETAILS",
@@ -529,9 +580,10 @@ static const char *const s_txtDetail[6] =
 	"DETTAGLI",
 	"DETALLE",
 	"DETAILS",
+	"DETALHES",
 };
 #endif
-static const char *superHard[6] =
+static const char *superHard[7] =
 {
 	"SUPER HARD",
 	"SUPER DIFFICILE",
@@ -539,8 +591,9 @@ static const char *superHard[6] =
 	"SUPER DIFFICILE",
 	"SUPER DIFICIL",
 	"SUPER MOEILIJK",
+	"SUPER DIFICIL",
 };
-static const char *ultraHard[6] =
+static const char *ultraHard[7] =
 {
 	"ULTRA HARD",
 	"ULTRA DIFFICILE",
@@ -548,8 +601,9 @@ static const char *ultraHard[6] =
 	"ULTRA DIFFICILE",
 	"ULTRA DIFICIL",
 	"ULTRA MOEILIJK",
+	"ULTRA DIFICIL",
 };
-static const char *bossFight[6] =
+static const char *bossFight[7] =
 {
 	"BOSS FIGHT",
 	"COMBAT DE BOSS",
@@ -557,8 +611,9 @@ static const char *bossFight[6] =
 	"SFIDA BOSS",
 	"BATALLA DE JEFE",
 	"BAASGEVECHT",
+	"BATALHA DE CHEFE",
 };
-static const char *oxideFinal[6] =
+static const char *oxideFinal[7] =
 {
 	"N. OXIDE - HARD",
 	"N. OXIDE - DIFFICILE",
@@ -566,8 +621,9 @@ static const char *oxideFinal[6] =
 	"N. OXIDE - DIFFICILE",
 	"N. OXIDE - DIFICIL",
 	"N. OXIDE - MOEILIJK",
+	"N. OXIDE - DIFICIL",
 };
-static const char *changeBoss[6] =
+static const char *changeBoss[7] =
 {
 	"CHANGE BOSS",
 	"CHANGER DE BOSS",
@@ -575,8 +631,9 @@ static const char *changeBoss[6] =
 	"CAMBIA BOSS",
 	"CAMBIAR JEFE",
 	"BAAS WIJZIGEN",
+	"MUDAR CHEFE",
 };
-static const char *adhoc[6] =
+static const char *adhoc[7] =
 {
 	"MULTIPLAYER",
 	"MULTIJOUEUR",
@@ -584,8 +641,9 @@ static const char *adhoc[6] =
 	"MULTIGIOCATORE",
 	"MULTIPLAYER",
 	"MULTIPLAYER",
+	"MULTIPLAYER",
 };
-static const char *exitGame[6] =
+static const char *exitGame[7] =
 {
 	"EXIT GAME",
 	"QUITTER LE JEU",
@@ -593,8 +651,9 @@ static const char *exitGame[6] =
 	"ESCI DAL GIOCO",
 	"SALIR DEL JUEGO",
 	"SPEL AFSLUITEN",
+	"SAIR DO JOGO",
 };
-static const char *onlineLeaderboard[6] =
+static const char *onlineLeaderboard[7] =
 {
 	"ONLINE LEADERBOARD",
 	"CLASSEMENT ONLINE",
@@ -602,8 +661,9 @@ static const char *onlineLeaderboard[6] =
 	"CLASSIFICA ONLINE",
 	"RANKING ONLINE",
 	"ONLINE RANGLIJST",
+	"PLACAR ONLINE",
 };
-static const char *watchGhost[6] =
+static const char *watchGhost[7] =
 {
 	"WATCH GHOST",
 	"VOIR FANTOME",
@@ -611,8 +671,9 @@ static const char *watchGhost[6] =
 	"GUARDA FANTASMA",
 	"VER FANTASMA",
 	"SPOOK BEKIJKEN",
+	"VER FANTASMA",
 };
-static const char *challengeGhost[6] =
+static const char *challengeGhost[7] =
 {
 	"CHALLENGE GHOST",
 	"DEFIER FANTOME",
@@ -620,8 +681,9 @@ static const char *challengeGhost[6] =
 	"SFIDA FANTASMA",
 	"DESAFIA FANTASMA",
 	"DAAG SPOOK UIT",
+	"DESAFIAR FANTASMA",
 };
-static const char *trackNormal[6] =
+static const char *trackNormal[7] =
 {
 	"NORMAL",
 	"NORMAL",
@@ -629,8 +691,9 @@ static const char *trackNormal[6] =
 	"NORMALE",
 	"NORMAL",
 	"NORMAAL",
+	"NORMAL",
 };
-static const char *trackReverse[6] =
+static const char *trackReverse[7] =
 {
 	"REVERSE",
 	"INVERSE",
@@ -638,8 +701,9 @@ static const char *trackReverse[6] =
 	"INVERSA",
 	"INVERSA",
 	"OMGEKEERD",
+	"INVERSA",
 };
-static const char *trackAlternative[6] =
+static const char *trackAlternative[7] =
 {
 	"ALTERNATIVE",
 	"ALTERNATIVE",
@@ -647,16 +711,17 @@ static const char *trackAlternative[6] =
 	"ALTERNATIVA",
 	"ALTERNATIVA",
 	"ALTERNATIEF",
+	"ALTERNATIVA",
 };
-static const char *cheatsTitle[6] =
+static const char *cheatsTitle[7] =
 {
-	"CHEATS", "TRICHES", "CHEATS", "TRUCCHI", "TRUCOS", "CHEATS",
+	"CHEATS", "TRICHES", "CHEATS", "TRUCCHI", "TRUCOS", "CHEATS", "TRUQUES",
 };
-static const char *cheatToggle[6][2] =
+static const char *cheatToggle[7][2] =
 {
-	{"OFF", "ON"}, {"NON", "OUI"}, {"AUS", "EIN"}, {"NO", "SI"}, {"NO", "SI"}, {"UIT", "AAN"},
+	{"OFF", "ON"}, {"NON", "OUI"}, {"AUS", "EIN"}, {"NO", "SI"}, {"NO", "SI"}, {"UIT", "AAN"}, {"DESL", "LIG"},
 };
-static const char *cheatName[6][10] =
+static const char *cheatName[7][10] =
 {
 	{"INFINITE WUMPA", "INFINITE MASK", "INFINITE TURBOS", "INFINITE BOMBS", "INVISIBILITY", "SUPER ENGINE", "ICY TRACKS", "SUPER TURBO PADS", "ADV DIFFICULTY", "ALL CHARACTERS"},
 	{"WUMPA INFINIS", "MASQUE INFINI", "TURBOS INFINIS", "BOMBES INFINIES", "INVISIBILITE", "SUPER MOTEUR", "PISTES GLACEES", "SUPER TURBO PADS", "DIFFICULTE ADV", "TOUS PERSONNAGES"},
@@ -664,29 +729,30 @@ static const char *cheatName[6][10] =
 	{"WUMPA INFINITI", "MASCHERA INFINITA", "TURBO INFINITI", "BOMBE INFINITE", "INVISIBILITA", "SUPER MOTORE", "PISTE GHIACCIATE", "SUPER TURBO PAD", "DIFFICOLTA ADV", "TUTTI I PERSONAGGI"},
 	{"WUMPA INFINITA", "MASCARA INFINITA", "TURBOS INFINITOS", "BOMBAS INFINITAS", "INVISIBILIDAD", "SUPER MOTOR", "PISTAS HELADAS", "SUPER TURBO PADS", "DIFICULTAD ADV", "TODOS LOS PERSONAJES"},
 	{"ONEINDIG WUMPA", "ONEINDIG MASKER", "ONEINDIGE TURBOS", "ONEINDIGE BOMMEN", "ONZICHTBAAR", "SUPER MOTOR", "IJZIGE BANEN", "SUPER TURBO PADS", "ADV MOEILIJK", "ALLE PERSONAGES"},
+	{"WUMPA INFINITAS", "MASCARA INFINITA", "TURBOS INFINITOS", "BOMBAS INFINITAS", "INVISIBILIDADE", "SUPER MOTOR", "PISTAS DE GELO", "SUPER TURBO PADS", "DIFICULDADE ADV", "TODOS PERSONAGENS"},
 };
-static const char *boostCounter[6] = {"BOOST COUNTER", "COMPTEUR TURBO", "TURBO-ZAEHLER", "CONTATORE TURBO", "CONTADOR TURBO", "TURBO TELLER"};
+static const char *boostCounter[7] = {"BOOST COUNTER", "COMPTEUR TURBO", "TURBO-ZAEHLER", "CONTATORE TURBO", "CONTADOR TURBO", "TURBO TELLER", "CONTADOR DE TURBO"};
 static char cheatRow[64];
-static const char *lapSingular[6] = {"LAP", "TOUR", "RUNDE", "GIRO", "VUELTA", "RONDE"};
-static const char *lapPlural[6] = {"LAPS", "TOURS", "RUNDEN", "GIRI", "VUELTAS", "RONDEN"};
+static const char *lapSingular[7] = {"LAP", "TOUR", "RUNDE", "GIRO", "VUELTA", "RONDE", "VOLTA"};
+static const char *lapPlural[7] = {"LAPS", "TOURS", "RUNDEN", "GIRI", "VUELTAS", "RONDEN", "VOLTAS"};
 static char lapRow[32];
-static const char *controlsTitle[6] =
+static const char *controlsTitle[7] =
 {
-	"CONTROLS", "COMMANDES", "STEUERUNG", "COMANDI", "CONTROLES", "BESTURING",
+	"CONTROLS", "COMMANDES", "STEUERUNG", "COMANDI", "CONTROLES", "BESTURING", "CONTROLES",
 };
-static const char *controlHeaderAction[6] =
+static const char *controlHeaderAction[7] =
 {
-	"ACTION", "ACTION", "AKTION", "AZIONE", "ACCION", "ACTIE",
+	"ACTION", "ACTION", "AKTION", "AZIONE", "ACCION", "ACTIE", "ACAO",
 };
-static const char *controlHeaderKbm[6] =
+static const char *controlHeaderKbm[7] =
 {
-	"KB+M", "CLAV/SOURIS", "TAST/MOUSE", "KB+M", "KB+M", "KB+M",
+	"KB+M", "CLAV/SOURIS", "TAST/MOUSE", "KB+M", "KB+M", "KB+M", "TECL/MOUSE",
 };
-static const char *controlHeaderController[6] =
+static const char *controlHeaderController[7] =
 {
-	"CONTROLLER", "MANETTE", "CONTROLLER", "CONTROLLER", "MANDO", "CONTROLLER",
+	"CONTROLLER", "MANETTE", "CONTROLLER", "CONTROLLER", "MANDO", "CONTROLLER", "CONTROLE",
 };
-static const char *controlAction[6][PLATFORM_INPUT_BIND_ACTION_COUNT] =
+static const char *controlAction[7][PLATFORM_INPUT_BIND_ACTION_COUNT] =
 {
 	{"* ACCELERATE", "[ BRAKE/REVERSE", "@ USE POWER-UP", "^ TOGGLE HUD", "HOP / SLIDE L1", "HOP / SLIDE R1", "CAMERA CHANGE", "REAR VIEW", "DPAD UP", "DPAD DOWN", "DPAD LEFT", "DPAD RIGHT", "START / PAUSE"},
 	{"* ACCELERER", "[ FREIN/RECUL", "@ UTILISER BONUS", "^ AFFICHAGE HUD", "SAUT / DERAP L1", "SAUT / DERAP R1", "CHANGER CAMERA", "VUE ARRIERE", "HAUT", "BAS", "GAUCHE", "DROITE", "START / PAUSE"},
@@ -694,6 +760,7 @@ static const char *controlAction[6][PLATFORM_INPUT_BIND_ACTION_COUNT] =
 	{"* ACCELERA", "[ FRENO/RETRO", "@ USA POWER-UP", "^ CAMBIA HUD", "SALTO / DERAP L1", "SALTO / DERAP R1", "CAMBIA CAMERA", "VISTA POSTERIORE", "DPAD SU", "DPAD GIU", "DPAD SINISTRA", "DPAD DESTRA", "START / PAUSA"},
 	{"* ACELERAR", "[ FRENO/REVERSA", "@ USAR POWER-UP", "^ CAMBIAR HUD", "SALTO / DERRAPE L1", "SALTO / DERRAPE R1", "CAMBIAR CAMARA", "VISTA TRASERA", "DPAD ARRIBA", "DPAD ABAJO", "DPAD IZQUIERDA", "DPAD DERECHA", "START / PAUSA"},
 	{"* GAS", "[ REM/ACHTERUIT", "@ POWER-UP GEBR.", "^ HUD WISSELEN", "SPRONG / DRIFT L1", "SPRONG / DRIFT R1", "CAMERA WISSEL", "ACHTERUITZICHT", "DPAD OMHOOG", "DPAD OMLAAG", "DPAD LINKS", "DPAD RECHTS", "START / PAUZE"},
+	{"* ACELERAR", "[ FREIO/RE", "@ USAR PODER", "^ ALTERNAR HUD", "PULO / DERRAP L1", "PULO / DERRAP R1", "MUDAR CAMERA", "OLHAR PRA TRAS", "DIRECIONAL CIMA", "DIRECIONAL BAIXO", "DIRECIONAL ESQ", "DIRECIONAL DIR", "START / PAUSA"},
 };
 // clang-format on
 
@@ -969,7 +1036,7 @@ static char *RECTMENU_GetString(s16 stringIndex)
 	static char audioRow[64];
 
 	int languageRow = 0;
-	if ((cfg_language >= 2) && (cfg_language <= 7))
+	if ((cfg_language >= 2) && (cfg_language <= 8))
 	{
 		languageRow = cfg_language - 2;
 	}
@@ -1068,9 +1135,11 @@ static char *RECTMENU_GetString(s16 stringIndex)
 		return (char *)s_txtAudio[languageRow];
 	case NATIVE_MENU_STRING_UNLOCKS:
 	{
-		static const char *const titles[6] = {"UNLOCKS", "A DEBLOQUER", "FREISCHALTUNGEN", "SBLOCCABILI", "DESBLOQUEOS", "VRIJSPELEN"};
+		static const char *const titles[7] = {"UNLOCKS", "A DEBLOQUER", "FREISCHALTUNGEN", "SBLOCCABILI", "DESBLOQUEOS", "VRIJSPELEN", "DESBLOQUEIOS"};
 		return (char *)titles[languageRow];
 	}
+	case NATIVE_MENU_STRING_PORTUGUESE:
+		return "PORTUGUES";
 	case NATIVE_MENU_STRING_CREDITS:
 		return (char *)s_txtCredits[languageRow];
 	case NATIVE_MENU_STRING_CREDITS_LINE_0:
@@ -1144,17 +1213,17 @@ static char *RECTMENU_GetString(s16 stringIndex)
 	case NATIVE_MENU_STRING_ADHOC:
 		return (char *)adhoc[languageRow];
 	case NATIVE_MENU_STRING_ONLINE_CREATE:
-		return (languageRow == 4) ? "CRIAR SALA" : "CREATE ROOM";
+		return (languageRow == 6) ? "CRIAR SALA" : ((languageRow == 4) ? "CREAR SALA" : "CREATE ROOM");
 	case NATIVE_MENU_STRING_ONLINE_BROWSER:
-		return (languageRow == 4) ? "SALAS ONLINE" : "PUBLIC ROOMS";
+		return (languageRow == 6) ? "SALAS ONLINE" : ((languageRow == 4) ? "SALAS ONLINE" : "PUBLIC ROOMS");
 	case NATIVE_MENU_STRING_ONLINE_CODE:
-		return (languageRow == 4) ? "BUSCAR POR CODIGO" : "SEARCH BY CODE";
+		return (languageRow == 6) ? "BUSCAR POR CODIGO" : ((languageRow == 4) ? "BUSCAR POR CODIGO" : "SEARCH BY CODE");
 	case NATIVE_MENU_STRING_ONLINE_REFRESH:
-		return (languageRow == 4) ? "ATUALIZAR" : "REFRESH";
+		return (languageRow == 6) ? "ATUALIZAR" : ((languageRow == 4) ? "ACTUALIZAR" : "REFRESH");
 	case NATIVE_MENU_STRING_ONLINE_JOIN:
-		return (languageRow == 4) ? "ENTRAR" : "JOIN";
+		return (languageRow == 6) ? "ENTRAR" : ((languageRow == 4) ? "UNIRSE" : "JOIN");
 	case NATIVE_MENU_STRING_ONLINE_NO_ROOMS:
-		return (languageRow == 4) ? "NENHUMA SALA DISPONIVEL" : "NO ROOMS FOUND";
+		return (languageRow == 6) ? "NENHUMA SALA DISPONIVEL" : ((languageRow == 4) ? "NO HAY SALAS" : "NO ROOMS FOUND");
 	case NATIVE_MENU_STRING_ONLINE_CODE_DISPLAY:
 		return (char *)MM_NativeAdhocGetCodeDisplayText();
 	case NATIVE_MENU_STRING_EXIT_GAME:
@@ -1181,8 +1250,9 @@ static char *RECTMENU_GetString(s16 stringIndex)
 			const struct NativeLobbyRoomInfo *info = NativeLobby_GetRoom(roomIdx);
 			if (info != NULL)
 			{
-				const char *st = (info->currentPlayers >= info->maxPlayers) ? "CHEIA" :
-				                 (strcmp(info->status, "RACING") == 0 ? "EM JOGO" : "AGUARDANDO");
+				const char *st = (info->currentPlayers >= info->maxPlayers) ? ((languageRow == 6) ? "CHEIA" : ((languageRow == 4) ? "LLENA" : "FULL")) :
+				                 (strcmp(info->status, "RACING") == 0 ? ((languageRow == 6) ? "EM JOGO" : ((languageRow == 4) ? "EN JUEGO" : "RACING")) :
+				                 ((languageRow == 6) ? "AGUARDANDO" : ((languageRow == 4) ? "ESPERANDO" : "WAITING")));
 				snprintf(s_roomRowStr, sizeof(s_roomRowStr), "%s  %d/%d  %s", info->code, info->currentPlayers, info->maxPlayers, st);
 				return s_roomRowStr;
 			}

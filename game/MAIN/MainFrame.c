@@ -36,14 +36,22 @@ static void MainFrame_DrawClockEffect(struct GameTracker *gGT, struct Driver *dr
 #if defined(CTR_NATIVE)
 	if (NativeAdhoc_IsConnected() && (gGT != NULL) && (gGT->numPlyrCurrGame >= 2))
 	{
-		if ((driver == NULL) || !NativeAdhoc_ShouldPresentDriver(driver->driverID))
+		int localPlayerIdx = NativeAdhoc_GetLocalPlayerIndex();
+		// In online/LAN multiplayer, each client only renders the clock effect for their own local driver
+		if ((driver == NULL) || (driver->driverID != (u8)localPlayerIdx))
+		{
+			return;
+		}
+		// If the local player is the attacker who fired the clock (clockSend > 0 and clockReceive == 0),
+		// do NOT blur their screen
+		if (driver->clockReceive == 0 && driver->clockSend > 0 && strength > 0)
 		{
 			return;
 		}
 
 		struct PushBuffer fullscreenPushBuffer;
 		memset(&fullscreenPushBuffer, 0, sizeof(fullscreenPushBuffer));
-		PushBuffer_Init(&fullscreenPushBuffer, NativeAdhoc_GetLocalPlayerIndex(), 1);
+		PushBuffer_Init(&fullscreenPushBuffer, localPlayerIdx, 1);
 		DISPLAY_Blur_Main(&fullscreenPushBuffer, strength);
 		return;
 	}

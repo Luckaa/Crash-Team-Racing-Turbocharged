@@ -480,7 +480,7 @@ void NativeReverseTrack_ApplyToLevel(struct Level *level)
 
 const char *NativeReverseTrack_GetSuffix(void)
 {
-	static const char *suffix[6] =
+	static const char *suffix[7] =
 	{
 		" REVERSE",
 		" INVERSE",
@@ -488,14 +488,15 @@ const char *NativeReverseTrack_GetSuffix(void)
 		" INVERSA",
 		" INVERSA",
 		" OMGEKEERD",
+		" INVERSA",
 	};
-	int languageRow = ((cfg_language >= 2) && (cfg_language <= 7)) ? cfg_language - 2 : 0;
+	int languageRow = ((cfg_language >= 2) && (cfg_language <= 8)) ? cfg_language - 2 : 0;
 	return suffix[languageRow];
 }
 
 const char *NativeReverseTrack_GetAlternativeSuffix(void)
 {
-	static const char *suffix[6] =
+	static const char *suffix[7] =
 	{
 		" ALTERNATIVE",
 		" ALTERNATIVE",
@@ -503,8 +504,9 @@ const char *NativeReverseTrack_GetAlternativeSuffix(void)
 		" ALTERNATIVA",
 		" ALTERNATIVA",
 		" ALTERNATIEF",
+		" ALTERNATIVA",
 	};
-	int languageRow = ((cfg_language >= 2) && (cfg_language <= 7)) ? cfg_language - 2 : 0;
+	int languageRow = ((cfg_language >= 2) && (cfg_language <= 8)) ? cfg_language - 2 : 0;
 	return suffix[languageRow];
 }
 

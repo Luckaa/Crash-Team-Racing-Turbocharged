@@ -89,13 +89,14 @@ void NativeUnlock_NotifySlideColiseum(void)
 // Its visible time pauses during loading, cutscenes, mask hints and active races.
 void NativeUnlock_Draw(void)
 {
-	static const char *const titles[6] = {
-	    "UNLOCKED!", "DEBLOQUE!", "FREIGESCHALTET!", "SBLOCCATO!", "DESBLOQUEADO!", "ONTGRENDELD!",
+	static const char *const titles[7] = {
+	    "UNLOCKED!", "DEBLOQUE!", "FREIGESCHALTET!", "SBLOCCATO!", "DESBLOQUEADO!", "ONTGRENDELD!", "DESBLOQUEADO!",
 	};
-	static const char *const kinds[6][5] = {
+	static const char *const kinds[7][5] = {
 	    {"CHARACTER", "TRACK", "BATTLE ARENA", "SCRAPBOOK", "ADVENTURE TRACK"},      {"PERSONNAGE", "CIRCUIT", "ARENE DE COMBAT", "ALBUM", "CIRCUIT AVENTURE"},
 	    {"CHARAKTER", "STRECKE", "KAMPFARENA", "ALBUM", "ABENTEUERSTRECKE"},         {"PERSONAGGIO", "PISTA", "ARENA BATTAGLIA", "ALBUM", "PISTA AVVENTURA"},
 	    {"PERSONAJE", "CIRCUITO", "ARENA DE BATALLA", "ALBUM", "CIRCUITO AVENTURA"}, {"PERSONAGE", "CIRCUIT", "GEVECHTSARENA", "ALBUM", "AVONTURENCIRCUIT"},
+	    {"PERSONAGEM", "PISTA", "ARENA DE BATALHA", "ALBUM", "PISTA AVENTURA"},
 	};
 	if ((sdata == NULL) || (sdata->gGT == NULL) || (s_nativeUnlockCount == 0))
 		return;
@@ -111,8 +112,8 @@ void NativeUnlock_Draw(void)
 		s_nativeUnlockStarted = true;
 	}
 	const struct NativeUnlockReward *reward = &s_nativeUnlockRewards[s_nativeUnlockQueue[s_nativeUnlockHead]];
-	// Match the native menus: configured language files 2..7 are EN, FR, DE, IT, ES, NL.
-	int language = (cfg_language >= 2 && cfg_language <= 7) ? cfg_language - 2 : 0;
+	// Match the native menus: configured language files 2..8 are EN, FR, DE, IT, ES, NL, PT.
+	int language = (cfg_language >= 2 && cfg_language <= 8) ? cfg_language - 2 : 0;
 	char *name = sdata->lngStrings[reward->name];
 	int nameFont = DecalFont_GetLineWidth(name, FONT_BIG) <= 440 ? FONT_BIG : FONT_SMALL;
 	int width = DecalFont_GetLineWidth(name, nameFont) + 32;

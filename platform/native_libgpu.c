@@ -457,9 +457,15 @@ void DrawPrim(void *p)
 
 void AddPrim(void *ot, void *p)
 {
+	if (ot == NULL || p == NULL || (uintptr_t)ot < 0x100000 || (uintptr_t)p < 0x100000)
+	{
+		return;
+	}
+
 	u32 otTag = CTR_GPU_ReadTagWord(ot);
 	u32 primTag = CTR_GPU_ReadTagWord(p);
 
 	CTR_GPU_WriteTagWord(p, CtrGpu_PackOTTag(otTag, primTag & 0xff000000u));
 	CTR_GPU_WriteTagWord(ot, CtrGpu_PrimToOTLink24(p));
 }
+

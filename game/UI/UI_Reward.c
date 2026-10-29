@@ -212,7 +212,9 @@ void UI_ThTick_CountPickup(struct Thread *bucket)
 
 		if (owner >= 0)
 		{
-			if (owner != localPlayer)
+			if (owner != localPlayer ||
+			    (gGT->gameMode1 & END_OF_RACE) != 0 ||
+			    (gGT->drivers[owner] != NULL && (gGT->drivers[owner]->actionsFlagSet & ACTION_RACE_FINISHED) != 0))
 			{
 				inst->flags |= HIDE_MODEL;
 			}
